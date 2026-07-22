@@ -42,9 +42,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get('API_PORT', 3001);
+  const port = parseInt(process.env.PORT || configService.get('API_PORT', '3001'), 10);
   await app.listen(port);
-  console.log(`🚀 Ngowamix API running on http://localhost:${port}`);
-  console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+  console.log(`🚀 Ngowamix API running on port ${port}`);
 }
 bootstrap();
