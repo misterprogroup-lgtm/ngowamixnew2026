@@ -172,7 +172,6 @@ export class AuthService {
     });
 
     this.emailService.sendPasswordResetCode(dto.email, code).catch(() => {});
-    this.emailService.sendVerificationCode(dto.email, code).catch(() => {});
 
     return { message: 'Si cet email existe, un code a été envoyé' };
   }

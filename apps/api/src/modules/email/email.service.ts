@@ -10,10 +10,11 @@ export class EmailService {
   constructor(private configService: ConfigService) {
     const host = this.configService.get<string>('smtp.host');
     if (host) {
+      const port = this.configService.get<number>('smtp.port', 587);
       this.transporter = nodemailer.createTransport({
         host,
-        port: this.configService.get<number>('smtp.port', 587),
-        secure: false,
+        port,
+        secure: port === 465,
         auth: {
           user: this.configService.get<string>('smtp.user', ''),
           pass: this.configService.get<string>('smtp.pass', ''),
@@ -27,8 +28,10 @@ export class EmailService {
   async sendEmail(to: string, subject: string, html: string) {
     if (this.transporter) {
       try {
+        const from = this.configService.get<string>('smtp.from')
+          || `"Ngowamix" <${this.configService.get<string>('smtp.user', 'noreply@ngowamix.com')}>`;
         const info = await this.transporter.sendMail({
-          from: `"Ngowamix" <${this.configService.get<string>('smtp.user', 'noreply@ngowamix.com')}>`,
+          from,
           to,
           subject,
           html,
