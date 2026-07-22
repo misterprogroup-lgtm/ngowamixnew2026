@@ -1,0 +1,25 @@
+{
+  "name": "ngowamix",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "pnpm --filter @ngowamix/api dev",
+    "dev:web": "pnpm --filter @ngowamix/web dev",
+    "build": "turbo build",
+    "build:api": "pnpm --filter @ngowamix/api build",
+    "build:web": "pnpm --filter @ngowamix/web build",
+    "lint": "turbo lint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @ngowamix/api prisma migrate dev",
+    "db:generate": "pnpm --filter @ngowamix/api prisma generate",
+    "db:seed": "pnpm --filter @ngowamix/api prisma db seed",
+    "db:studio": "pnpm --filter @ngowamix/api prisma studio",
+    "db:reset": "pnpm --filter @ngowamix/api prisma migrate reset"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

@@ -1,0 +1,555 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  FAN
+  ARTISTE
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  GRATUIT
+  PRO_MENSUEL
+  PRO_ANNUEL
+  FAMILLE_MENSUEL
+  FAMILLE_ANNUEL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDUE
+  EXPIREE
+  ANNULEE
+}
+
+enum VerificationType {
+  EMAIL
+  PHONE
+  PASSWORD_RESET
+}
+
+enum TrackVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  phone         String?   @unique
+  passwordHash  String
+  pseudo        String    @unique
+  role          UserRole  @default(FAN)
+  avatarUrl     String?
+  country       String?
+  city          String?
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  artistProfile     ArtistProfile?
+  subscription      Subscription?
+  verificationCodes VerificationCode[]
+  refreshTokens     RefreshToken[]
+  playlists         Playlist[]
+  listenHistory     ListenHistory[]
+  downloadHistory   DownloadHistory[]
+  dailyQuota        DailyQuota?
+  albumPurchases    AlbumPurchase[]
+  trackLikes        TrackLike[]
+  followedArtists   Follow[]
+  notifications     Notification[]
+  tickets           Ticket[]
+  paidLiveAccesses  PaidLiveAccess[]
+  comments          Comment[]
+  reports           Report[]
+  wallet            Wallet?
+  withdrawals       Withdrawal[]
+  payments          Payment[]
+  moderationLogs    ModerationLog[]
+  notificationPref  NotificationPref?
+
+  @@map("users")
+}
+
+model ArtistProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  slug          String    @unique
+  artistName    String
+  bio           String?
+  bannerUrl     String?
+  genres        String[]
+  socialLinks   Json?
+  followerCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks Track[]
+  albums Album[]
+  followers Follow[]
+  concerts Concert[]
+  paidLives PaidLive[]
+
+  @@map("artist_profiles")
+}
+
+model Subscription {
+  id        String               @id @default(uuid())
+  userId    String               @unique
+  plan      SubscriptionPlan     @default(GRATUIT)
+  status    SubscriptionStatus   @default(ACTIVE)
+  startDate DateTime             @default(now())
+  endDate   DateTime?
+  autoRenew Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model VerificationCode {
+  id        String           @id @default(uuid())
+  userId    String
+  code      String
+  type      VerificationType
+  expiresAt DateTime
+  used      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("verification_codes")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Track {
+  id              String          @id @default(uuid())
+  artistId        String
+  title           String
+  slug            String          @unique
+  description     String?
+  audioUrl        String
+  audioSize       Int             @default(0)
+  audioDuration   Int             @default(0)
+  coverUrl        String?
+  genre           String?
+  tags            String[]
+  visibility      TrackVisibility @default(PUBLIC)
+  playCount       Int             @default(0)
+  downloadCount   Int             @default(0)
+  likeCount       Int             @default(0)
+  isExplicit      Boolean         @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  artist         ArtistProfile    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  albumTracks    AlbumTrack[]
+  playlistTracks PlaylistTrack[]
+  listenHistory  ListenHistory[]
+  downloadHistory DownloadHistory[]
+  trackLikes     TrackLike[]
+  comments       Comment[]
+
+  @@index([artistId])
+  @@index([genre])
+  @@index([playCount(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("tracks")
+}
+
+model Album {
+  id          String   @id @default(uuid())
+  artistId    String
+  title       String
+  slug        String   @unique
+  description String?
+  coverUrl    String?
+  releaseDate DateTime?
+  price       Int      @default(0) // en FCFA, 0 = gratuit
+  isFree      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  artist           ArtistProfile    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  albumTracks      AlbumTrack[]
+  albumPurchases   AlbumPurchase[]
+
+  @@index([artistId])
+  @@map("albums")
+}
+
+model AlbumPurchase {
+  id        String   @id @default(uuid())
+  userId    String
+  albumId   String
+  amount    Int      // montant payé en FCFA
+  createdAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  album Album         @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumId])
+  @@index([userId])
+  @@index([albumId])
+  @@map("album_purchases")
+}
+
+model AlbumTrack {
+  id        String  @id @default(uuid())
+  albumId   String
+  trackId   String
+  position  Int     @default(0)
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, trackId])
+  @@map("album_tracks")
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean  @default(false)
+  trackCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlistTracks PlaylistTrack[]
+
+  @@index([userId])
+  @@map("playlists")
+}
+
+model PlaylistTrack {
+  id         String   @id @default(uuid())
+  playlistId String
+  trackId    String
+  position   Int      @default(0)
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@map("playlist_tracks")
+}
+
+model ListenHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  trackId   String
+  listenedAt DateTime @default(now())
+  duration  Int      @default(0)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId, listenedAt(sort: Desc)])
+  @@map("listen_history")
+}
+
+model DownloadHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  trackId    String
+  downloadedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId, downloadedAt(sort: Desc)])
+  @@map("download_history")
+}
+
+model DailyQuota {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  date              DateTime @default(now())
+  listensUsed       Int      @default(0)
+  downloadsUsed     Int      @default(0)
+  listenLimit       Int      @default(30)
+  downloadLimit     Int      @default(5)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("daily_quotas")
+}
+
+model TrackLike {
+  id        String   @id @default(uuid())
+  userId    String
+  trackId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+  @@index([userId])
+  @@index([trackId])
+  @@map("track_likes")
+}
+
+model Follow {
+  id        String   @id @default(uuid())
+  userId    String
+  artistId  String
+  createdAt DateTime @default(now())
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artistId])
+  @@index([userId])
+  @@index([artistId])
+  @@map("follows")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // follow, like, purchase, concert, live, system
+  title     String
+  message   String
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model NotificationPref {
+  userId  String  @id
+  emailFollows   Boolean @default(true)
+  emailLikes     Boolean @default(true)
+  emailPurchases Boolean @default(true)
+  emailConcerts  Boolean @default(true)
+  emailLives     Boolean @default(true)
+  emailSystem    Boolean @default(true)
+  pushFollows    Boolean @default(true)
+  pushLikes      Boolean @default(true)
+  pushPurchases  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_prefs")
+}
+
+model Concert {
+  id          String   @id @default(uuid())
+  artistId    String
+  title       String
+  slug        String   @unique
+  description String?
+  coverUrl    String?
+  venue       String
+  city        String
+  country     String  @default("Cameroun")
+  date        DateTime
+  time        String?
+  ticketPrice Int      @default(0) // FCFA, 0 = gratuit
+  totalSeats  Int      @default(0)
+  soldSeats   Int      @default(0)
+  status      String   @default("UPCOMING") // UPCOMING, ONGOING, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  artist  ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
+  @@index([artistId])
+  @@index([date])
+  @@map("concerts")
+}
+
+model Ticket {
+  id        String   @id @default(uuid())
+  userId    String
+  concertId String
+  quantity  Int      @default(1)
+  totalPaid Int      // FCFA
+  qrCode    String?  @unique
+  status    String   @default("ACTIVE") // ACTIVE, USED, CANCELLED
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concert Concert @relation(fields: [concertId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([concertId])
+  @@map("tickets")
+}
+
+model PaidLive {
+  id          String   @id @default(uuid())
+  artistId    String
+  title       String
+  slug        String   @unique
+  description String?
+  coverUrl    String?
+  streamUrl   String?
+  price       Int      @default(0) // FCFA, 0 = gratuit
+  scheduledAt DateTime?
+  isLive      Boolean  @default(false)
+  viewerCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  artist  ArtistProfile    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  accesses PaidLiveAccess[]
+
+  @@index([artistId])
+  @@index([scheduledAt])
+  @@map("paid_lives")
+}
+
+model PaidLiveAccess {
+  id        String   @id @default(uuid())
+  userId    String
+  liveId    String
+  amount    Int      // montant payé en FCFA
+  createdAt DateTime @default(now())
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  live PaidLive @relation(fields: [liveId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, liveId])
+  @@index([userId])
+  @@index([liveId])
+  @@map("paid_live_accesses")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  userId    String
+  trackId   String
+  content   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  userId     String
+  targetType String   // track, comment, user
+  targetId   String
+  reason     String   // spam, adult, copyright, violence, other
+  details    String?
+  status     String   @default("PENDING") // PENDING, REVIEWED, RESOLVED, DISMISSED
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
+  @@index([status])
+  @@map("reports")
+}
+
+model ModerationLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String   // moderate, toggle_active, resolve_report, dismiss_report, nullify
+  targetType String   // TRACK, COMMENT, ALBUM, USER, REPORT
+  targetId   String
+  reason     String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("moderation_logs")
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String         @unique
+  balance   Float    @default(0)
+  income    Float    @default(0)
+  pending   Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Withdrawal Withdrawal[]
+
+  @@map("wallets")
+}
+
+model Withdrawal {
+  id        String   @id @default(uuid())
+  userId    String
+  walletId  String
+  amount    Float
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  method    String   // orange_money, mtn_money, carte_bancaire
+  account   String   // phone or IBAN
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+model Payment {
+  id         String   @id @default(uuid())
+  userId     String
+  amount     Int      // montant en FCFA
+  method     String   // orange_money, mtn_money, carte_bancaire
+  status     String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  targetType String   // concert_ticket, live_access, subscription
+  targetId   String   // concertId, liveId, or subscriptionId
+  reference  String?  @unique
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@map("payments")
+}

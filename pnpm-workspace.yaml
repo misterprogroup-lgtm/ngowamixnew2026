@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  prisma: true
+  sharp: true
+  unrs-resolver: set this to true or false
+overrides:
+  '@babel/types': '7.26.8'
+  '@babel/helper-string-parser': '7.25.9'

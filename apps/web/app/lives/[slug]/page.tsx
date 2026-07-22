@@ -1,0 +1,245 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { api } from '../../lib/api';
+import LivePlayer from '../../components/live/LivePlayer';
+import { Smartphone, CreditCard } from 'lucide-react';
+
+interface PaidLive {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string;
+  coverUrl?: string;
+  streamUrl?: string;
+  price: number;
+  scheduledAt?: string;
+  isLive: boolean;
+  viewerCount: number;
+  artist: { artistName: string; slug: string; user?: { avatarUrl?: string } };
+  _count?: { accesses: number };
+}
+
+export default function LiveDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const slug = params.slug as string;
+  const [live, setLive] = useState<PaidLive | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const data = await api.get<PaidLive>(`/lives/${slug}`);
+        setLive(data);
+      } catch {
+        setLive(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLive();
+  }, [slug]);
+
+  const handlePurchase = async () => {
+    if (!live) return;
+    if (!paymentMethod) return;
+    setPurchasing(true);
+    setError('');
+    try {
+      await api.post(`/payments/live/${live.id}`, { method: paymentMethod });
+      setSuccess(true);
+      setShowPaymentModal(false);
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de l\'achat');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const methodIcons: Record<string, React.ReactNode> = {
+    orange_money: <Smartphone className="w-5 h-5" />,
+    mtn_money: <Smartphone className="w-5 h-5" />,
+    carte_bancaire: <CreditCard className="w-5 h-5" />,
+  };
+
+  const methodLabels: Record<string, string> = {
+    orange_money: 'Orange Money',
+    mtn_money: 'MTN Mobile Money',
+    carte_bancaire: 'Carte Bancaire',
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dark-900 py-8">
+        <div className="max-w-4xl mx-auto px-4 animate-pulse">
+          <div className="h-64 bg-dark-700/50 rounded-xl mb-6" />
+          <div className="h-8 bg-dark-700/50 rounded w-1/2 mb-4" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!live) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-white mb-2">Live non trouvé</h2>
+          <Link href="/lives" className="text-primary-600 hover:text-primary-700">Retour aux lives</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-dark-900 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <Link href="/lives" className="text-primary-600 hover:text-primary-700 text-sm mb-6 inline-block">&larr; Retour aux lives</Link>
+
+        <div className="bg-dark-800/50 rounded-xl overflow-hidden">
+          {live.isLive && live.streamUrl && (
+            <div className="p-4">
+              <LivePlayer streamUrl={live.streamUrl} isLive={live.isLive} title={live.title} artistName={live.artist.artistName} viewerCount={live.viewerCount} />
+            </div>
+          )}
+
+          <div className="h-64 bg-gradient-to-br from-red-400 to-red-600 relative">
+            {live.coverUrl ? (
+              <img src={live.coverUrl} alt={live.title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <svg className="w-20 h-20 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+            {live.isLive && (
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full animate-pulse">
+                <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                EN DIRECT
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-white mb-2">{live.title}</h1>
+                <Link href={`/artistes/${live.artist.slug}`} className="text-primary-600 hover:text-primary-700 font-medium">
+                  {live.artist.artistName}
+                </Link>
+
+                {live.description && (
+                  <p className="mt-4 text-dark-300 leading-relaxed">{live.description}</p>
+                )}
+
+                <div className="flex items-center gap-4 mt-4 text-sm text-dark-400">
+                  {live.scheduledAt && (
+                    <span>Programmé le {new Date(live.scheduledAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  )}
+                  <span>{live._count?.accesses || 0} spectateur(s)</span>
+                </div>
+              </div>
+
+              {/* Access Purchase */}
+              <div className="bg-dark-700/50 rounded-xl p-6 md:w-72 flex-shrink-0">
+                {success ? (
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="font-semibold text-white mb-1">Accès acquis !</p>
+                    <p className="text-sm text-dark-400">Vous pouvez regarder ce live</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-center mb-4">
+                      <p className="text-3xl font-bold text-white">
+                        {live.price === 0 ? 'Gratuit' : `${live.price.toLocaleString('fr-FR')} FCFA`}
+                      </p>
+                    </div>
+
+                    {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+
+                    {live.isLive ? (
+                      <button
+                        className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition-colors animate-pulse"
+                      >
+                        Regarder le live
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowPaymentModal(true)}
+                        disabled={purchasing}
+                        className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-semibold disabled:opacity-50 transition-colors"
+                      >
+                        {live.price === 0 ? 'Accéder gratuitement' : 'Acheter l\'accès'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !purchasing && setShowPaymentModal(false)}>
+          <div className="bg-dark-800/50 backdrop-blur-xl rounded-2xl max-w-sm w-full p-6 border border-dark-700/50" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">Choisir un moyen de paiement</h3>
+            <div className="space-y-2 mb-6">
+              {['orange_money', 'mtn_money', 'carte_bancaire'].map(m => (
+                <button key={m} onClick={() => setPaymentMethod(m)}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    paymentMethod === m
+                      ? 'border-primary-500 bg-primary-50'
+                      : 'border-dark-700/50 hover:border-dark-500'
+                  }`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    paymentMethod === m ? 'bg-primary-500 text-white' : 'bg-dark-700/50 text-dark-400'
+                  }`}>{methodIcons[m]}</div>
+                  <div className="text-left">
+                    <p className="font-medium text-white">{methodLabels[m]}</p>
+                    <p className="text-xs text-dark-400">Paiement sécurisé</p>
+                  </div>
+                  {paymentMethod === m && (
+                    <div className="w-5 h-5 rounded-full border-2 border-primary-500 flex items-center justify-center ml-auto">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="bg-dark-700/50 rounded-xl p-3 mb-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-dark-300">Total à payer</span>
+                <span className="font-bold text-primary-600">{live.price.toLocaleString('fr-FR')} FCFA</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowPaymentModal(false)} disabled={purchasing}
+                className="flex-1 bg-dark-700/50 hover:bg-dark-600/50 text-dark-700 py-3 rounded-xl font-medium transition-colors disabled:opacity-50">
+                Annuler
+              </button>
+              <button onClick={handlePurchase} disabled={!paymentMethod || purchasing}
+                className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50">
+                {purchasing ? 'Paiement en cours...' : 'Confirmer le paiement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

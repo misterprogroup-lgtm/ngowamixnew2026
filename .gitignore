@@ -1,0 +1,38 @@
+node_modules/
+dist/
+.next/
+.nuxt/
+.turbo/
+
+# Prevent stale compiled files inside source trees
+apps/api/src/**/*.js
+apps/api/src/**/*.js.map
+apps/api/src/**/*.d.ts
+!apps/api/src/multer.d.ts
+
+.env
+.env.local
+.env.*.local
+
+*.log
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp files (Word, etc.)
+~\$*
+
+# Uploads
+uploads/
+apps/api/uploads/
+
+# Build artifacts
+apps/api/dist/
