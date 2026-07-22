@@ -197,6 +197,12 @@ export class MusicController {
       return res.status(404).json({ message: 'Morceau non trouvé' });
     }
 
+    // External URL (utfs.io, S3, etc.) → redirect
+    if (track.audioUrl.startsWith('http://') || track.audioUrl.startsWith('https://')) {
+      return res.redirect(track.audioUrl);
+    }
+
+    // Local file
     const filePath = path.join(process.cwd(), track.audioUrl);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: 'Fichier audio non trouvé' });
