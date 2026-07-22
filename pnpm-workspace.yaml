@@ -8,7 +8,7 @@ allowBuilds:
   '@scarf/scarf': true
   prisma: true
   sharp: true
-  unrs-resolver: set this to true or false
+  unrs-resolver: true
 overrides:
   '@babel/types': '7.26.8'
   '@babel/helper-string-parser': '7.25.9'
