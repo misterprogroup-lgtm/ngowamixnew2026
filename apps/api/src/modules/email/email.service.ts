@@ -6,8 +6,20 @@ import { ConfigService } from '@nestjs/config';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
+  private resendApiKey: string | null = null;
+  private resendFrom: string = 'Ngowamix <noreply@ngowamix.com>';
 
   constructor(private configService: ConfigService) {
+    // Resend HTTP API (works on Render free tier — SMTP ports are blocked)
+    const apiKey = this.configService.get<string>('resend.apiKey');
+    if (apiKey) {
+      this.resendApiKey = apiKey;
+      this.resendFrom = this.configService.get<string>('resend.from') || this.resendFrom;
+      this.logger.log('Email via Resend HTTP API');
+      return;
+    }
+
+    // Fallback: SMTP (local dev or providers that allow SMTP ports)
     const host = this.configService.get<string>('smtp.host');
     if (host) {
       const port = this.configService.get<number>('smtp.port', 587);
@@ -21,11 +33,36 @@ export class EmailService {
         },
       });
     } else {
-      this.logger.warn('SMTP not configured — emails will be logged to console only');
+      this.logger.warn('No email provider configured — emails will be logged to console only');
     }
   }
 
   async sendEmail(to: string, subject: string, html: string) {
+    // 1. Resend HTTP API
+    if (this.resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ from: this.resendFrom, to, subject, html }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          this.logger.error(`Resend API error for ${to}: ${JSON.stringify(data)}`);
+          return;
+        }
+        this.logger.log(`Email sent to ${to}: ${data.id}`);
+        return data;
+      } catch (err) {
+        this.logger.error(`Failed to send email to ${to}: ${err}`);
+        return;
+      }
+    }
+
+    // 2. SMTP fallback
     if (this.transporter) {
       try {
         const from = this.configService.get<string>('smtp.from')

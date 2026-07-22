@@ -26,6 +26,10 @@ export default () => ({
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || '',
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.RESEND_FROM || 'Ngowamix <noreply@ngowamix.com>',
+  },
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT || '60', 10),

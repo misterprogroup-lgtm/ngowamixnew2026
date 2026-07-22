@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  Logger,
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
@@ -17,6 +18,8 @@ import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -78,7 +81,9 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     // Send welcome and verification emails
-    this.emailService.sendWelcomeEmail(user.email, user.pseudo).catch(() => {});
+    this.emailService.sendWelcomeEmail(user.email, user.pseudo).catch((err) => {
+      this.logger.error(`Failed to send welcome email to ${user.email}: ${err?.message || err}`);
+    });
 
     return {
       user,
@@ -171,7 +176,9 @@ export class AuthService {
       },
     });
 
-    this.emailService.sendPasswordResetCode(dto.email, code).catch(() => {});
+    this.emailService.sendPasswordResetCode(dto.email, code).catch((err) => {
+      this.logger.error(`Failed to send reset email to ${dto.email}: ${err?.message || err}`);
+    });
 
     return { message: 'Si cet email existe, un code a été envoyé' };
   }
