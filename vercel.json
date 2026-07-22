@@ -1,10 +1,5 @@
 {
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @ngowamix/web build",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs",
-  "regions": ["cdg1"],
-  "monorepo": {
-    "rootDirectory": "apps/web"
-  }
+  "framework": "nextjs"
 }
