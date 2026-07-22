@@ -27,6 +27,15 @@ import { CreateTrackDto, UpdateTrackDto } from './dto/create-track.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { IsString, IsNotEmpty } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class SearchTracksDto extends PaginationDto {
+  @ApiProperty({ required: true })
+  @IsString()
+  @IsNotEmpty()
+  q: string;
+}
 
 const AUDIO_MIMES = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 'audio/aac', 'audio/mp4', 'audio/webm'];
 
@@ -111,8 +120,8 @@ export class MusicController {
   @Get('tracks/search')
   @ApiOperation({ summary: 'Rechercher des morceaux' })
   @ApiQuery({ name: 'q', required: true })
-  search(@Query('q') query: string, @Query() pagination: PaginationDto) {
-    return this.musicService.search(query, pagination);
+  search(@Query() query: SearchTracksDto) {
+    return this.musicService.search(query.q, query);
   }
 
   @Get('tracks/:slug')
