@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -18,8 +18,9 @@ export class PaymentsController {
     @Param('concertId') concertId: string,
     @Body('quantity') quantity: number,
     @Body('method') method: string,
+    @Body('phone') phone?: string,
   ) {
-    return this.paymentsService.processConcertTicketPayment(userId, concertId, quantity || 1, method);
+    return this.paymentsService.processConcertTicketPayment(userId, concertId, quantity || 1, method, phone);
   }
 
   @Post('live/:liveId')
@@ -30,8 +31,9 @@ export class PaymentsController {
     @CurrentUser('id') userId: string,
     @Param('liveId') liveId: string,
     @Body('method') method: string,
+    @Body('phone') phone?: string,
   ) {
-    return this.paymentsService.processLiveAccessPayment(userId, liveId, method);
+    return this.paymentsService.processLiveAccessPayment(userId, liveId, method, phone);
   }
 
   @Post('album/:albumId')
@@ -42,8 +44,24 @@ export class PaymentsController {
     @CurrentUser('id') userId: string,
     @Param('albumId') albumId: string,
     @Body('method') method: string,
+    @Body('phone') phone?: string,
   ) {
-    return this.paymentsService.processAlbumPayment(userId, albumId, method);
+    return this.paymentsService.processAlbumPayment(userId, albumId, method, phone);
+  }
+
+  @Get(':paymentId/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Vérifier le statut d\'un paiement (polling)' })
+  checkStatus(@CurrentUser('id') userId: string, @Param('paymentId') paymentId: string) {
+    return this.paymentsService.checkPaymentStatus(paymentId, userId);
+  }
+
+  @Post('webhook/pawapay')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Webhook PawaPay (callback de confirmation)' })
+  pawapayWebhook(@Body() payload: { depositId: string; status: string }) {
+    return this.paymentsService.handlePawapayCallback(payload);
   }
 
   @Get()
