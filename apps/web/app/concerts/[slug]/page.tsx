@@ -72,17 +72,22 @@ export default function ConcertDetailPage() {
     }
   }, [user, concert]);
 
-  const handlePurchase = async (method: string) => {
+  const handlePurchase = async (method: string, phone: string) => {
     if (!concert) return;
     if (!user) { router.push('/connexion'); return; }
     setPurchasing(true);
     try {
-      const res = await api.post<{ payment: any; ticket: Ticket }>(`/payments/concert/${concert.id}`, {
+      const res = await api.post<{ payment: any; ticket: Ticket; status?: string; message?: string }>(`/payments/concert/${concert.id}`, {
         quantity,
         method,
+        phone,
       });
-      setMyTicket(res.ticket);
-      setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
+      if (res.status === 'PENDING') {
+        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      } else {
+        setMyTicket(res.ticket);
+        setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
+      }
       setShowPaymentModal(false);
     } catch (err: any) {
       alert(err.message || 'Erreur lors de l\'achat');

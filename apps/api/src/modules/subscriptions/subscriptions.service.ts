@@ -34,7 +34,7 @@ export class SubscriptionsService {
     return { ...sub, ...planInfo };
   }
 
-  async subscribe(userId: string, planId: string, paymentMethod?: string) {
+  async subscribe(userId: string, planId: string, paymentMethod?: string, phone?: string) {
     if (!PLANS[planId]) throw new BadRequestException('Plan invalide');
 
     const plan = PLANS[planId];
@@ -42,12 +42,16 @@ export class SubscriptionsService {
     // If plan is paid, process payment
     if (plan.price > 0) {
       if (!paymentMethod) throw new BadRequestException('Méthode de paiement requise');
-      await this.paymentsService.initiatePayment(userId, {
+      const result = await this.paymentsService.initiatePayment(userId, {
         amount: plan.price,
         method: paymentMethod,
         targetType: 'subscription',
         targetId: planId,
+        phone,
       });
+      if (result.status !== 'COMPLETED') {
+        return { status: 'PENDING', message: 'Confirmez le paiement sur votre téléphone (USSD)' };
+      }
     }
 
     const now = new Date();

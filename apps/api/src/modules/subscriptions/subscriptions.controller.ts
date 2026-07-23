@@ -30,9 +30,9 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Souscrire à un plan' })
   subscribe(
     @CurrentUser('id') userId: string,
-    @Body() body: { planId: string; paymentMethod?: string },
+    @Body() body: { planId: string; paymentMethod?: string; phone?: string },
   ) {
-    return this.subscriptionsService.subscribe(userId, body.planId, body.paymentMethod);
+    return this.subscriptionsService.subscribe(userId, body.planId, body.paymentMethod, body.phone);
   }
 
   @Patch('cancel')

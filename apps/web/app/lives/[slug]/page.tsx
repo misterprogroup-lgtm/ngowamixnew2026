@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '../../lib/api';
 import LivePlayer from '../../components/live/LivePlayer';
 import { Smartphone, CreditCard } from 'lucide-react';
+import PaymentModal from '../../components/PaymentModal';
 
 interface PaidLive {
   id: string;
@@ -31,7 +32,6 @@ export default function LiveDetailPage() {
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
@@ -48,32 +48,23 @@ export default function LiveDetailPage() {
     fetchLive();
   }, [slug]);
 
-  const handlePurchase = async () => {
+  const handlePurchase = async (method: string, phone: string) => {
     if (!live) return;
-    if (!paymentMethod) return;
     setPurchasing(true);
     setError('');
     try {
-      await api.post(`/payments/live/${live.id}`, { method: paymentMethod });
-      setSuccess(true);
+      const res = await api.post<{ status?: string; message?: string }>(`/payments/live/${live.id}`, { method, phone });
+      if (res.status === 'PENDING') {
+        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      } else {
+        setSuccess(true);
+      }
       setShowPaymentModal(false);
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'achat');
     } finally {
       setPurchasing(false);
     }
-  };
-
-  const methodIcons: Record<string, React.ReactNode> = {
-    orange_money: <Smartphone className="w-5 h-5" />,
-    mtn_money: <Smartphone className="w-5 h-5" />,
-    carte_bancaire: <CreditCard className="w-5 h-5" />,
-  };
-
-  const methodLabels: Record<string, string> = {
-    orange_money: 'Orange Money',
-    mtn_money: 'MTN Mobile Money',
-    carte_bancaire: 'Carte Bancaire',
   };
 
   if (loading) {
@@ -195,50 +186,12 @@ export default function LiveDetailPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !purchasing && setShowPaymentModal(false)}>
-          <div className="bg-dark-800/50 backdrop-blur-xl rounded-2xl max-w-sm w-full p-6 border border-dark-700/50" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-4">Choisir un moyen de paiement</h3>
-            <div className="space-y-2 mb-6">
-              {['orange_money', 'mtn_money', 'carte_bancaire'].map(m => (
-                <button key={m} onClick={() => setPaymentMethod(m)}
-                  className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    paymentMethod === m
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-dark-700/50 hover:border-dark-500'
-                  }`}>
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    paymentMethod === m ? 'bg-primary-500 text-white' : 'bg-dark-700/50 text-dark-400'
-                  }`}>{methodIcons[m]}</div>
-                  <div className="text-left">
-                    <p className="font-medium text-white">{methodLabels[m]}</p>
-                    <p className="text-xs text-dark-400">Paiement sécurisé</p>
-                  </div>
-                  {paymentMethod === m && (
-                    <div className="w-5 h-5 rounded-full border-2 border-primary-500 flex items-center justify-center ml-auto">
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="bg-dark-700/50 rounded-xl p-3 mb-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-dark-300">Total à payer</span>
-                <span className="font-bold text-primary-600">{live.price.toLocaleString('fr-FR')} FCFA</span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowPaymentModal(false)} disabled={purchasing}
-                className="flex-1 bg-dark-700/50 hover:bg-dark-600/50 text-dark-700 py-3 rounded-xl font-medium transition-colors disabled:opacity-50">
-                Annuler
-              </button>
-              <button onClick={handlePurchase} disabled={!paymentMethod || purchasing}
-                className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50">
-                {purchasing ? 'Paiement en cours...' : 'Confirmer le paiement'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PaymentModal
+          amount={live.price}
+          title="Accéder au live"
+          onConfirm={handlePurchase}
+          onClose={() => !purchasing && setShowPaymentModal(false)}
+        />
       )}
     </div>
   );

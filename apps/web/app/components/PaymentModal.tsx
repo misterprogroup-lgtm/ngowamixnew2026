@@ -1,26 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import { Smartphone } from 'lucide-react';
 
 interface PaymentModalProps {
   amount: number;
   title: string;
-  onConfirm: (method: string) => void;
+  onConfirm: (method: string, phone: string) => void;
   onClose: () => void;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
 }
 
 const PAYMENT_METHODS = [
-  { id: 'orange_money', name: 'Orange Money', icon: '#f60' },
-  { id: 'mtn_money', name: 'MTN Mobile Money', icon: '#ffc107' },
-  { id: 'carte_bancaire', name: 'Carte Bancaire', icon: '#1a1a2e' },
+  { id: 'orange_money', name: 'Orange Money', color: '#f60', label: 'OM' },
+  { id: 'mtn_money', name: 'MTN Mobile Money', color: '#ffc107', label: 'MTN' },
+  { id: 'moov_money', name: 'Moov Money', color: '#0066ff', label: 'Moov' },
+  { id: 'wave', name: 'Wave', color: '#1dc3f0', label: 'Wave' },
 ];
 
 export default function PaymentModal({ amount, title, onConfirm, onClose, quantity, onQuantityChange }: PaymentModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<string>('orange_money');
+  const [phone, setPhone] = useState('');
 
   const total = quantity ? amount * quantity : amount;
+
+  const handleSubmit = () => {
+    const cleaned = phone.replace(/[\s\-+]/g, '');
+    if (cleaned.length < 8) return;
+    onConfirm(selectedMethod, cleaned);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
@@ -62,9 +71,9 @@ export default function PaymentModal({ amount, title, onConfirm, onClose, quanti
             >
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: method.icon }}
+                style={{ backgroundColor: method.color }}
               >
-                {method.id === 'orange_money' ? 'OM' : method.id === 'mtn_money' ? 'MTN' : 'CB'}
+                {method.label}
               </div>
               <div className="text-left">
                 <p className="font-medium text-white">{method.name}</p>
@@ -78,9 +87,25 @@ export default function PaymentModal({ amount, title, onConfirm, onClose, quanti
           ))}
         </div>
 
+        <div className="mt-4">
+          <label className="text-sm text-dark-300 font-medium mb-1.5 block">Numéro de téléphone</label>
+          <div className="relative">
+            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="07 07 07 07 07"
+              className="w-full bg-dark-700/50 border border-dark-600 rounded-xl pl-10 pr-4 py-3 text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 transition-colors"
+            />
+          </div>
+          <p className="text-[11px] text-dark-500 mt-1">Un code USSD sera envoyé pour confirmer le paiement</p>
+        </div>
+
         <button
-          onClick={() => onConfirm(selectedMethod)}
-          className="w-full mt-6 btn-primary"
+          onClick={handleSubmit}
+          disabled={phone.replace(/[\s\-+]/g, '').length < 8}
+          className="w-full mt-5 btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Payer {total.toLocaleString('fr-FR')} FCFA
         </button>

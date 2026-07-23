@@ -75,18 +75,23 @@ export default function TicketPage() {
     }
   }, [user, concerts]);
 
-  const handlePurchase = async (method: string) => {
+  const handlePurchase = async (method: string, phone: string) => {
     if (!selectedConcert || !user) return;
     setPurchasing(true);
     try {
-      const res = await api.post<{ payment: any; ticket: Ticket }>(`/payments/concert/${selectedConcert.id}`, {
+      const res = await api.post<{ payment: any; ticket: Ticket; status?: string; message?: string }>(`/payments/concert/${selectedConcert.id}`, {
         quantity,
         method,
+        phone,
       });
-      setMyTickets(prev => ({ ...prev, [selectedConcert.id]: res.ticket }));
-      setConcerts(prev => prev.map(c =>
-        c.id === selectedConcert.id ? { ...c, soldSeats: c.soldSeats + quantity } : c
-      ));
+      if (res.status === 'PENDING') {
+        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      } else {
+        setMyTickets(prev => ({ ...prev, [selectedConcert.id]: res.ticket }));
+        setConcerts(prev => prev.map(c =>
+          c.id === selectedConcert.id ? { ...c, soldSeats: c.soldSeats + quantity } : c
+        ));
+      }
       setShowPayment(false);
     } catch (err: any) {
       alert(err.message || 'Erreur lors de l\'achat');

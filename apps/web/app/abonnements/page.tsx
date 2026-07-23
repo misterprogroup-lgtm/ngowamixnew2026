@@ -68,20 +68,20 @@ export default function AbonnementsPage() {
     await doSubscribe(planId);
   };
 
-  const handlePaymentConfirm = async (method: string) => {
+  const handlePaymentConfirm = async (method: string, phone: string) => {
     if (!pendingPlan) return;
     setShowPayment(false);
-    await doSubscribe(pendingPlan.id, method);
+    await doSubscribe(pendingPlan.id, method, phone);
     setPendingPlan(null);
   };
 
-  const doSubscribe = async (planId: string, paymentMethod?: string) => {
+  const doSubscribe = async (planId: string, paymentMethod?: string, phone?: string) => {
     setSubscribing(true);
     setSelectedPlan(planId);
     setError('');
     setSuccess('');
     try {
-      await api.post('/subscriptions/subscribe', { planId, paymentMethod });
+      await api.post('/subscriptions/subscribe', { planId, paymentMethod, phone });
       const subData = await api.get<Subscription>('/subscriptions/me');
       setCurrentSub(subData);
       setSuccess('Abonnement activé avec succès !');
