@@ -37,10 +37,20 @@ async function bootstrap() {
     .setDescription('API de la plateforme musicale Ngowamix')
     .setVersion('1.0')
     .addBearerAuth()
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+    .addServer(process.env.APP_URL || 'http://localhost:3001', 'Production')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const isProd = process.env.NODE_ENV === 'production';
+  SwaggerModule.setup(isProd ? 'api/docs' : 'api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      tagsSorter: 'alpha',
+    },
+  });
 
   const port = parseInt(process.env.PORT || configService.get('API_PORT', '3001'), 10);
   await app.listen(port);
