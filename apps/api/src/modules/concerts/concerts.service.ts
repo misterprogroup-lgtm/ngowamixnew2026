@@ -59,13 +59,27 @@ export class ConcertsService {
     return result;
   }
 
-  async findAll(pagination: PaginationDto, upcoming?: boolean) {
-    const cacheKey = `concerts:list:${upcoming}:${pagination.page}:${pagination.limit}`;
+  async findAll(pagination: PaginationDto, upcoming?: boolean, artistSlug?: string) {
+    const cacheKey = `concerts:list:${upcoming}:${artistSlug || 'all'}:${pagination.page}:${pagination.limit}`;
     const cached = await this.redis.getJson<any>(cacheKey);
     if (cached) return cached;
 
     const { skip, limit } = pagination;
-    const where = upcoming ? { date: { gte: new Date() }, status: 'UPCOMING' } : {};
+
+    let where: any = upcoming ? { date: { gte: new Date() }, status: 'UPCOMING' } : {};
+
+    if (artistSlug) {
+      const normalizedSlug = artistSlug.toLowerCase().replace(/-/g, '');
+      const allArtists = await this.prisma.artistProfile.findMany({
+        select: { id: true, slug: true },
+      });
+      const matchedArtist = allArtists.find(a => a.slug.toLowerCase().replace(/-/g, '') === normalizedSlug);
+      if (matchedArtist) {
+        where = { ...where, artistId: matchedArtist.id };
+      } else {
+        return { data: [], meta: { total: 0, page: pagination.page, limit: pagination.limit } };
+      }
+    }
 
     const [concerts, total] = await Promise.all([
       this.prisma.concert.findMany({

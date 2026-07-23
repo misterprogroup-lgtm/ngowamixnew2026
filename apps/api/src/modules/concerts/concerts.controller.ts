@@ -30,8 +30,8 @@ export class ConcertsController {
 
   @Get()
   @ApiOperation({ summary: 'Liste des concerts' })
-  findAll(@Query() pagination: PaginationDto, @Query('upcoming') upcoming?: string) {
-    return this.concertsService.findAll(pagination, upcoming === 'true');
+  findAll(@Query() pagination: PaginationDto, @Query('upcoming') upcoming?: string, @Query('artistSlug') artistSlug?: string) {
+    return this.concertsService.findAll(pagination, upcoming === 'true', artistSlug);
   }
 
   @Get('my-concerts')

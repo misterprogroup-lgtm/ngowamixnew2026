@@ -120,7 +120,7 @@ export default function ConcertsPage() {
                   </div>
                   <div className="flex items-center gap-1 mt-2 text-[11px] text-primary-400">
                     <Link2 className="w-3 h-3" />
-                    <span>{concert.artist.slug}ticket.ngowamix.com</span>
+                    <span>{concert.artist.slug.replace(/-/g, '')}ticket.ngowamix.com</span>
                   </div>
                 </div>
               </Link>

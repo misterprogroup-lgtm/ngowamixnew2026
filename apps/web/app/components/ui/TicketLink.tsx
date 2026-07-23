@@ -10,7 +10,7 @@ interface TicketLinkProps {
 
 export default function TicketLink({ artistSlug, className = '' }: TicketLinkProps) {
   const [copied, setCopied] = useState(false);
-  const ticketUrl = `https://${artistSlug}ticket.ngowamix.com`;
+  const ticketUrl = `https://${artistSlug.replace(/-/g, '')}ticket.ngowamix.com`;
 
   const handleCopy = async () => {
     try {
