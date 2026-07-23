@@ -82,14 +82,14 @@ function TrackCard({ track, allTracks, index }: { track: Track; allTracks: Track
         <Link
           href={`/morceaux/${track.slug}`}
           onClick={(e) => e.stopPropagation()}
-          className={`font-medium truncate text-sm block hover:underline ${isActive ? 'text-primary-500' : 'text-white'}`}
+          className={`font-medium truncate text-sm block hover:text-primary-400 transition-colors ${isActive ? 'text-primary-500' : 'text-white'}`}
         >
           {track.title}
         </Link>
         <Link
           href={`/artistes/${track.artist.slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-xs text-dark-400 truncate mt-0.5 block hover:text-white transition-colors"
+          className="text-xs text-dark-400 truncate mt-0.5 block hover:text-primary-400 transition-colors"
         >
           {track.artist.artistName}
         </Link>
