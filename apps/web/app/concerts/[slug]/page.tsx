@@ -82,8 +82,8 @@ export default function ConcertDetailPage() {
         method,
         phone,
       });
-      if (res.status === 'PENDING') {
-        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        pollPaymentStatus(res.payment?.id);
       } else {
         setMyTicket(res.ticket);
         setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
@@ -92,6 +92,27 @@ export default function ConcertDetailPage() {
     } catch (err: any) {
       alert(err.message || 'Erreur lors de l\'achat');
     } finally { setPurchasing(false); }
+  };
+
+  const pollPaymentStatus = async (paymentId: string) => {
+    if (!paymentId) return;
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
+        if (payment.status === 'COMPLETED') {
+          clearInterval(interval);
+          const tickets = await api.get<Ticket[]>(`/concerts/${concert!.id}/my-tickets`);
+          if (Array.isArray(tickets) && tickets.length > 0) setMyTicket(tickets[tickets.length - 1]);
+          setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
+        } else if (payment.status === 'FAILED' || attempts >= maxAttempts) {
+          clearInterval(interval);
+          if (payment.status === 'FAILED') alert('Le paiement a échoué. Veuillez réessayer.');
+        }
+      } catch { /* retry */ }
+    }, 3000);
   };
 
   if (loading) {
@@ -222,6 +243,7 @@ export default function ConcertDetailPage() {
           onClose={() => !purchasing && setShowPaymentModal(false)}
           quantity={quantity}
           onQuantityChange={setQuantity}
+          maxQuantity={available}
         />
       )}
     </div>

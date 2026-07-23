@@ -540,8 +540,9 @@ model Payment {
   id         String   @id @default(uuid())
   userId     String
   amount     Int      // montant en FCFA
-  method     String   // orange_money, mtn_money, carte_bancaire
-  status     String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  quantity   Int      @default(1)
+  method     String   // orange_money, mtn_money, wave, moov_money
+  status     String   @default("PENDING") // PENDING, COMPLETED, FAILED
   targetType String   // concert_ticket, live_access, subscription
   targetId   String   // concertId, liveId, or subscriptionId
   reference  String?  @unique

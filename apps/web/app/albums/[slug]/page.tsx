@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../../components/auth/AuthContext';
 import { usePlayer } from '../../components/player/PlayerContext';
 import { api, type Album, type Track } from '../../lib/api';
 import { Smartphone, CreditCard, Download, Check, Loader2, ShoppingCart } from 'lucide-react';
@@ -12,7 +13,9 @@ import PaymentModal from '../../components/PaymentModal';
 
 export default function AlbumDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug as string;
+  const { user } = useAuth();
   const { play, addToQueue } = usePlayer();
   const [album, setAlbum] = useState<Album & { _count?: { albumTracks: number; albumPurchases: number } } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,12 +47,13 @@ export default function AlbumDetailPage() {
 
   const handlePurchase = async (method: string, phone: string) => {
     if (!album) return;
+    if (!user) { router.push('/connexion'); return; }
     setPurchasing(true);
     setError('');
     try {
-      const res = await api.post<{ status?: string; message?: string }>(`/payments/album/${album.id}`, { method, phone });
-      if (res.status === 'PENDING') {
-        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      const res = await api.post<{ payment?: any; status?: string; message?: string }>(`/payments/album/${album.id}`, { method, phone });
+      if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        pollPaymentStatus(res.payment?.id);
       } else {
         setPurchased(true);
         setPurchaseSuccess(true);
@@ -61,6 +65,26 @@ export default function AlbumDetailPage() {
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const pollPaymentStatus = async (paymentId: string) => {
+    if (!paymentId) return;
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
+        if (payment.status === 'COMPLETED') {
+          clearInterval(interval);
+          setPurchased(true);
+          setPurchaseSuccess(true);
+          setTimeout(() => setPurchaseSuccess(false), 4000);
+        } else if (payment.status === 'FAILED' || attempts >= 20) {
+          clearInterval(interval);
+          if (payment.status === 'FAILED') setError('Le paiement a échoué.');
+        }
+      } catch { /* retry */ }
+    }, 3000);
   };
 
   const playAll = () => {

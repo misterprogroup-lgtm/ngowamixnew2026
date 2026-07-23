@@ -50,7 +50,7 @@ export class SubscriptionsService {
         phone,
       });
       if (result.status !== 'COMPLETED') {
-        return { status: 'PENDING', message: 'Confirmez le paiement sur votre téléphone (USSD)' };
+        return { status: 'PENDING', payment: result.payment, message: 'Confirmez le paiement sur votre téléphone (USSD)' };
       }
     }
 

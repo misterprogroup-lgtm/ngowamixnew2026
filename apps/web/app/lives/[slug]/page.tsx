@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 import LivePlayer from '../../components/live/LivePlayer';
 import { Smartphone, CreditCard } from 'lucide-react';
@@ -26,6 +27,7 @@ interface PaidLive {
 export default function LiveDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const slug = params.slug as string;
   const [live, setLive] = useState<PaidLive | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,12 +52,13 @@ export default function LiveDetailPage() {
 
   const handlePurchase = async (method: string, phone: string) => {
     if (!live) return;
+    if (!user) { router.push('/connexion'); return; }
     setPurchasing(true);
     setError('');
     try {
-      const res = await api.post<{ status?: string; message?: string }>(`/payments/live/${live.id}`, { method, phone });
-      if (res.status === 'PENDING') {
-        alert(res.message || 'Confirmez le paiement sur votre téléphone (USSD)');
+      const res = await api.post<{ payment?: any; status?: string; message?: string }>(`/payments/live/${live.id}`, { method, phone });
+      if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        pollPaymentStatus(res.payment?.id);
       } else {
         setSuccess(true);
       }
@@ -65,6 +68,30 @@ export default function LiveDetailPage() {
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const handleFreeAccess = async () => {
+    if (!live) return;
+    if (!user) { router.push('/connexion'); return; }
+    setSuccess(true);
+  };
+
+  const pollPaymentStatus = async (paymentId: string) => {
+    if (!paymentId) return;
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
+        if (payment.status === 'COMPLETED') {
+          clearInterval(interval);
+          setSuccess(true);
+        } else if (payment.status === 'FAILED' || attempts >= 20) {
+          clearInterval(interval);
+          if (payment.status === 'FAILED') setError('Le paiement a échoué.');
+        }
+      } catch { /* retry */ }
+    }, 3000);
   };
 
   if (loading) {
@@ -169,7 +196,7 @@ export default function LiveDetailPage() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setShowPaymentModal(true)}
+                        onClick={() => live.price === 0 ? handleFreeAccess() : setShowPaymentModal(true)}
                         disabled={purchasing}
                         className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-semibold disabled:opacity-50 transition-colors"
                       >

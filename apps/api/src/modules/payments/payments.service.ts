@@ -28,6 +28,7 @@ export class PaymentsService {
     method: string;
     targetType: string;
     targetId: string;
+    quantity?: number;
     phone?: string;
   }) {
     if (dto.amount <= 0) {
@@ -49,6 +50,7 @@ export class PaymentsService {
         data: {
           userId,
           amount: dto.amount,
+          quantity: dto.quantity || 1,
           method: dto.method,
           status: 'PENDING',
           targetType: dto.targetType,
@@ -65,6 +67,7 @@ export class PaymentsService {
       data: {
         userId,
         amount: dto.amount,
+        quantity: dto.quantity || 1,
         method: dto.method,
         status: 'COMPLETED',
         targetType: dto.targetType,
@@ -92,6 +95,7 @@ export class PaymentsService {
       method,
       targetType: 'concert_ticket',
       targetId: concertId,
+      quantity,
       phone,
     });
 
@@ -107,34 +111,38 @@ export class PaymentsService {
   }
 
   private async finalizeConcertTicket(paymentId: string, userId: string, concertId: string, quantity: number) {
-    const concert = await this.prisma.concert.findUnique({ where: { id: concertId }, include: { artist: true } });
-    if (!concert) throw new NotFoundException('Concert non trouvé');
+    const result = await this.prisma.$transaction(async (tx) => {
+      const concert = await tx.concert.findUnique({ where: { id: concertId }, include: { artist: true } });
+      if (!concert) throw new NotFoundException('Concert non trouvé');
 
-    const totalPaid = concert.ticketPrice * quantity;
-    const qrCode = crypto.randomBytes(16).toString('hex');
+      const totalPaid = concert.ticketPrice * quantity;
+      const qrCode = crypto.randomBytes(16).toString('hex');
 
-    const ticket = await this.prisma.ticket.create({
-      data: { userId, concertId, quantity, totalPaid, qrCode },
-      include: { concert: { select: { title: true, venue: true, city: true, date: true, time: true } } },
+      const ticket = await tx.ticket.create({
+        data: { userId, concertId, quantity, totalPaid, qrCode },
+        include: { concert: { select: { title: true, venue: true, city: true, date: true, time: true } } },
+      });
+
+      await tx.concert.update({
+        where: { id: concertId },
+        data: { soldSeats: { increment: quantity } },
+      });
+
+      return { concert, totalPaid, ticket };
     });
 
-    await this.prisma.concert.update({
-      where: { id: concertId },
-      data: { soldSeats: { increment: quantity } },
-    });
-
-    const earnings = await this.wallet.creditArtistEarnings(concert.artist.userId, totalPaid, 'mobile_money');
+    const earnings = await this.wallet.creditArtistEarnings(result.concert.artist.userId, result.totalPaid, 'mobile_money');
 
     const buyer = await this.prisma.user.findUnique({ where: { id: userId }, select: { pseudo: true } });
-    await this.notifications.create(concert.artist.userId, {
+    await this.notifications.create(result.concert.artist.userId, {
       type: 'purchase',
       title: 'Nouvelle vente de ticket',
-      message: `${buyer?.pseudo} a acheté ${quantity} ticket(s) pour "${concert.title}" (+${earnings.net} FCFA net)`,
-      linkUrl: `/concerts/${concert.slug}`,
+      message: `${buyer?.pseudo} a acheté ${quantity} ticket(s) pour "${result.concert.title}" (+${earnings.net} FCFA net)`,
+      linkUrl: `/concerts/${result.concert.slug}`,
     });
 
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
-    return { payment, ticket, earnings, status: 'COMPLETED' };
+    return { payment, ticket: result.ticket, earnings, status: 'COMPLETED' };
   }
 
   async processLiveAccessPayment(userId: string, liveId: string, method: string, phone?: string) {
@@ -260,7 +268,7 @@ export class PaymentsService {
     // Finaliser l'achat selon le type
     try {
       if (payment.targetType === 'concert_ticket') {
-        await this.finalizeConcertTicket(payment.id, payment.userId, payment.targetId, 1);
+        await this.finalizeConcertTicket(payment.id, payment.userId, payment.targetId, payment.quantity || 1);
       } else if (payment.targetType === 'live_access') {
         await this.finalizeLiveAccess(payment.id, payment.userId, payment.targetId);
       } else if (payment.targetType === 'album') {

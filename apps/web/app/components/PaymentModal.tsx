@@ -10,6 +10,7 @@ interface PaymentModalProps {
   onClose: () => void;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
+  maxQuantity?: number;
 }
 
 const PAYMENT_METHODS = [
@@ -19,7 +20,7 @@ const PAYMENT_METHODS = [
   { id: 'wave', name: 'Wave', color: '#1dc3f0', label: 'Wave' },
 ];
 
-export default function PaymentModal({ amount, title, onConfirm, onClose, quantity, onQuantityChange }: PaymentModalProps) {
+export default function PaymentModal({ amount, title, onConfirm, onClose, quantity, onQuantityChange, maxQuantity = 10 }: PaymentModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<string>('orange_money');
   const [phone, setPhone] = useState('');
 
@@ -49,7 +50,7 @@ export default function PaymentModal({ amount, title, onConfirm, onClose, quanti
               </button>
               <span className="w-8 text-center font-semibold text-white">{quantity}</span>
               <button
-                onClick={() => onQuantityChange(Math.min(10, quantity + 1))}
+                onClick={() => onQuantityChange(Math.min(maxQuantity, quantity + 1))}
                 className="w-8 h-8 rounded-full bg-dark-600 hover:bg-dark-500 flex items-center justify-center text-white font-bold transition-colors"
               >
                 +

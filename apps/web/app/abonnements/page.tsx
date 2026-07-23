@@ -81,17 +81,42 @@ export default function AbonnementsPage() {
     setError('');
     setSuccess('');
     try {
-      await api.post('/subscriptions/subscribe', { planId, paymentMethod, phone });
-      const subData = await api.get<Subscription>('/subscriptions/me');
-      setCurrentSub(subData);
-      setSuccess('Abonnement activé avec succès !');
-      refreshUser?.();
+      const res = await api.post<{ status?: string; message?: string; payment?: any }>('/subscriptions/subscribe', { planId, paymentMethod, phone });
+      if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        pollPaymentStatus(res.payment?.id);
+      } else {
+        const subData = await api.get<Subscription>('/subscriptions/me');
+        setCurrentSub(subData);
+        setSuccess('Abonnement activé avec succès !');
+        refreshUser?.();
+      }
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la souscription');
     } finally {
       setSubscribing(false);
       setSelectedPlan(null);
     }
+  };
+
+  const pollPaymentStatus = async (paymentId: string) => {
+    if (!paymentId) return;
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
+        if (payment.status === 'COMPLETED') {
+          clearInterval(interval);
+          const subData = await api.get<Subscription>('/subscriptions/me');
+          setCurrentSub(subData);
+          setSuccess('Abonnement activé avec succès !');
+          refreshUser?.();
+        } else if (payment.status === 'FAILED' || attempts >= 20) {
+          clearInterval(interval);
+          if (payment.status === 'FAILED') setError('Le paiement a échoué.');
+        }
+      } catch { /* retry */ }
+    }, 3000);
   };
 
   const handleCancel = async () => {
