@@ -189,14 +189,52 @@ export class MusicController {
 
   @Get('stream/:trackId')
   @ApiOperation({ summary: 'Stream audio d\'un morceau' })
-  async streamAudio(@Param('trackId') trackId: string, @Res() res: Response) {
+  @ApiQuery({ name: 'download', required: false, type: Boolean })
+  async streamAudio(
+    @Param('trackId') trackId: string,
+    @Query('download') download: string,
+    @Res() res: Response,
+  ) {
     const track = await (this.musicService as any).prisma.track.findUnique({ where: { id: trackId } });
     if (!track) {
       return res.status(404).json({ message: 'Morceau non trouvé' });
     }
 
-    // External URL (utfs.io, S3, etc.) → redirect
+    const isDownload = download === 'true' || download === '1';
+    const filename = `${track.title.replace(/[^a-zA-Z0-9À-ÿ\s\-]/g, '').trim() || trackId}.mp3`;
+
+    // External URL (utfs.io, S3, etc.)
     if (track.audioUrl.startsWith('http://') || track.audioUrl.startsWith('https://')) {
+      if (isDownload) {
+        const https = track.audioUrl.startsWith('https') ? require('https') : require('http');
+        return new Promise<void>((resolve) => {
+          https.get(track.audioUrl, (upstream: any) => {
+            if (upstream.statusCode === 301 || upstream.statusCode === 302) {
+              const redirectUrl = upstream.headers.location;
+              https.get(redirectUrl, (upstream2: any) => {
+                res.writeHead(200, {
+                  'Content-Type': upstream2.headers['content-type'] || 'audio/mpeg',
+                  'Content-Length': upstream2.headers['content-length'] || '',
+                  'Content-Disposition': `attachment; filename="${filename}"`,
+                });
+                upstream2.pipe(res);
+                upstream2.on('end', () => resolve());
+              });
+            } else {
+              res.writeHead(upstream.statusCode, {
+                ...upstream.headers,
+                'Content-Type': upstream.headers['content-type'] || 'audio/mpeg',
+                'Content-Disposition': `attachment; filename="${filename}"`,
+              });
+              upstream.pipe(res);
+              upstream.on('end', () => resolve());
+            }
+          }).on('error', () => {
+            res.status(502).json({ message: 'Erreur lors du téléchargement' });
+            resolve();
+          });
+        });
+      }
       return res.redirect(track.audioUrl);
     }
 
@@ -208,6 +246,16 @@ export class MusicController {
 
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
+
+    if (isDownload) {
+      res.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': fileSize,
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      });
+      return fs.createReadStream(filePath).pipe(res);
+    }
+
     const range = res.req.headers.range;
 
     if (range) {

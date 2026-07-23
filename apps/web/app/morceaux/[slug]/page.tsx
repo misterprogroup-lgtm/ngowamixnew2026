@@ -82,10 +82,7 @@ export default function TrackDetailPage({ params }: { params: Promise<{ slug: st
     try {
       const result = await api.post<{ allowed: boolean; message?: string }>(`/music/download/${track.id}`);
       if (result.allowed) {
-        const link = document.createElement('a');
-        link.href = `/api/music/stream/${track.id}`;
-        link.download = track.title;
-        link.click();
+        window.location.href = `/api/music/stream/${track.id}?download=true`;
       } else {
         alert(result.message || 'Limite de téléchargements atteinte');
       }

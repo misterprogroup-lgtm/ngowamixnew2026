@@ -83,7 +83,7 @@ export default function FanTelechargementsPage() {
                   <p>Téléchargé le</p>
                   <p>{new Date(entry.downloadedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
-                <a href={`/api/music/stream/${entry.track.id}`} download
+                <a href={`/api/music/stream/${entry.track.id}?download=true`}
                   className="flex items-center gap-1.5 bg-dark-700 hover:bg-dark-600 text-dark-300 px-3 py-2 rounded-lg text-sm transition-colors flex-shrink-0">
                   <Download className="w-4 h-4" />
                 </a>

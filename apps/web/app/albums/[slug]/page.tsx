@@ -95,10 +95,7 @@ export default function AlbumDetailPage() {
     try {
       const result = await api.post<{ allowed: boolean; quotaExceeded?: boolean; message?: string }>(`/music/download/${trackId}`);
       if (result.allowed) {
-        const link = document.createElement('a');
-        link.href = `/api/music/stream/${trackId}`;
-        link.download = title;
-        link.click();
+        window.location.href = `/api/music/stream/${trackId}?download=true`;
         setTimeout(() => setDownloadStates(prev => ({ ...prev, [trackId]: false })), 3000);
       } else {
         alert(result.message || 'Limite de téléchargements atteinte');
@@ -117,10 +114,7 @@ export default function AlbumDetailPage() {
       try {
         const result = await api.post<{ allowed: boolean }>(`/music/download/${track.id}`);
         if (result.allowed) {
-          const link = document.createElement('a');
-          link.href = `/api/music/stream/${track.id}`;
-          link.download = track.title;
-          link.click();
+          window.location.href = `/api/music/stream/${track.id}?download=true`;
         }
       } catch {}
       setDownloadStates(prev => ({ ...prev, [track.id]: false }));
