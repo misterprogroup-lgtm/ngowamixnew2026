@@ -168,8 +168,8 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         const [tracksRes, artistsRes] = await Promise.all([
-          api.get<PaginatedResponse<Track>>('/api/music/tracks?limit=12'),
-          api.get<PaginatedResponse<ArtistProfile>>('/api/artists?limit=10'),
+          api.get<PaginatedResponse<Track>>('/music/tracks?limit=12'),
+          api.get<PaginatedResponse<ArtistProfile>>('/artists?limit=10'),
         ]);
         setTracks(tracksRes.data || []);
         setArtists(artistsRes.data || []);
