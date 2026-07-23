@@ -7,20 +7,17 @@ export interface PawapayDepositResult {
   status: string;
 }
 
-const COUNTRY_CORRESPONDENTS: Record<string, Record<string, string>> = {
+const COUNTRY_PROVIDERS: Record<string, Record<string, string>> = {
   CIV: {
-    orange_money: 'ORANGE_CI',
-    mtn_money: 'MTN_CI',
-    moov_money: 'MOOV_CI',
-    wave: 'WAVE_CI',
+    orange_money: 'ORANGE_CIV',
+    mtn_money: 'MTN_MOMO_CIV',
   },
   CMR: {
     orange_money: 'ORANGE_CMR',
-    mtn_money: 'MTN_CMR',
+    mtn_money: 'MTN_MOMO_CMR',
   },
   SEN: {
     orange_money: 'ORANGE_SEN',
-    wave: 'WAVE_SEN',
   },
 };
 
@@ -53,24 +50,33 @@ export class PawapayService {
     return !!this.apiKey;
   }
 
-  resolveCorrespondent(method: string): string {
-    const correspondent = COUNTRY_CORRESPONDENTS[this.country]?.[method];
-    if (!correspondent) {
-      throw new BadRequestException(`Méthode "${method}" non supportée pour le pays ${this.country}`);
+  resolveProvider(method: string): string {
+    const provider = COUNTRY_PROVIDERS[this.country]?.[method];
+    if (!provider) {
+      const available = Object.keys(COUNTRY_PROVIDERS[this.country] || {}).join(', ');
+      throw new BadRequestException(
+        `Méthode "${method}" non supportée pour ${this.country}. Méthodes disponibles: ${available}`,
+      );
     }
-    return correspondent;
+    return provider;
   }
 
   private normalizePhone(phone: string): string {
-    // Supprime espaces, +, et préfixes internationaux doublés
     let p = phone.replace(/[\s\-+]/g, '');
-    // Si commence par 00, remplace par indicatif
     if (p.startsWith('00')) p = p.slice(2);
-    // CIV: si 10 chiffres commençant par 0, ajoute 225
+
     if (this.country === 'CIV') {
-      if (p.length === 10 && p.startsWith('0')) p = '225' + p;
-      if (p.length === 8) p = '2250' + p; // ancien format 8 chiffres
+      if (p.length === 10 && p.startsWith('0')) p = '225' + p.slice(1);
+      if (p.length === 9) p = '225' + p;
+      if (p.length === 8) p = '2250' + p;
+    } else if (this.country === 'CMR') {
+      if (p.length === 9 && p.startsWith('6')) p = '237' + p;
+      if (p.length === 8) p = '237' + p;
+    } else if (this.country === 'SEN') {
+      if (p.length === 9 && p.startsWith('7')) p = '221' + p;
+      if (p.length === 8) p = '221' + p;
     }
+
     return p;
   }
 
@@ -80,24 +86,26 @@ export class PawapayService {
     phone: string;
     statementDescription: string;
   }): Promise<PawapayDepositResult> {
-    const correspondent = this.resolveCorrespondent(params.method);
+    const provider = this.resolveProvider(params.method);
     const currency = COUNTRY_CURRENCY[this.country] || 'XOF';
     const depositId = randomUUID();
+    const phoneNumber = this.normalizePhone(params.phone);
 
     const body = {
       depositId,
       amount: String(params.amount),
       currency,
-      correspondent,
       payer: {
-        type: 'MSISDN',
-        address: { value: this.normalizePhone(params.phone) },
+        type: 'MMO',
+        accountDetails: {
+          phoneNumber,
+          provider,
+        },
       },
-      customerTimestamp: new Date().toISOString(),
-      statementDescription: params.statementDescription.slice(0, 22),
+      customerMessage: params.statementDescription.slice(0, 22),
     };
 
-    this.logger.log(`PawaPay deposit init: ${depositId} ${params.amount} ${currency} via ${correspondent}`);
+    this.logger.log(`PawaPay deposit init: ${depositId} ${params.amount} ${currency} via ${provider} phone=${phoneNumber}`);
 
     const res = await fetch(`${this.baseUrl}/v2/deposits`, {
       method: 'POST',
@@ -110,9 +118,10 @@ export class PawapayService {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      this.logger.error(`PawaPay deposit failed: ${res.status} ${JSON.stringify(data)}`);
-      throw new BadRequestException(data?.errorMessage || data?.message || 'Échec de l\'initiation du paiement');
+    if (!res.ok || data.status === 'REJECTED') {
+      const reason = data.failureReason?.failureMessage || data.errorMessage || data.message || 'Unknown error';
+      this.logger.error(`PawaPay deposit rejected: ${res.status} ${JSON.stringify(data)}`);
+      throw new BadRequestException(`Paiement refusé: ${reason}`);
     }
 
     this.logger.log(`PawaPay deposit created: ${depositId} status=${data.status}`);
@@ -130,6 +139,9 @@ export class PawapayService {
     }
 
     const data = await res.json().catch(() => ({}));
+    if (data.status === 'FOUND' && data.data?.status) {
+      return data.data.status;
+    }
     return data.status || 'UNKNOWN';
   }
 }

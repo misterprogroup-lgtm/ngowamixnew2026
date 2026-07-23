@@ -5,7 +5,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PawapayService } from './pawapay.service';
 import * as crypto from 'crypto';
 
-const PAWAPAY_METHODS = ['orange_money', 'mtn_money', 'moov_money', 'wave'];
+const PAWAPAY_METHODS = ['orange_money', 'mtn_money'];
 
 @Injectable()
 export class PaymentsService {

@@ -16,8 +16,6 @@ interface PaymentModalProps {
 const PAYMENT_METHODS = [
   { id: 'orange_money', name: 'Orange Money', color: '#f60', label: 'OM' },
   { id: 'mtn_money', name: 'MTN Mobile Money', color: '#ffc107', label: 'MTN' },
-  { id: 'moov_money', name: 'Moov Money', color: '#0066ff', label: 'Moov' },
-  { id: 'wave', name: 'Wave', color: '#1dc3f0', label: 'Wave' },
 ];
 
 export default function PaymentModal({ amount, title, onConfirm, onClose, quantity, onQuantityChange, maxQuantity = 10 }: PaymentModalProps) {
