@@ -8,7 +8,7 @@ import { toPlayerTrack } from './lib/player-utils';
 import { Play, Pause, Music, ChevronLeft, ChevronRight, Users, Radio, Calendar, TrendingUp, Trophy, Sparkles } from 'lucide-react';
 import { useAuth } from './components/auth/AuthContext';
 
-const GENRES = ['Tous', 'Afrobeat', 'Pop', 'World', 'R&B', 'Blues', 'Reggae', 'Afropop'];
+const DEFAULT_GENRES = ['Tous'];
 
 function TrackCard({ track, allTracks, index }: { track: Track; allTracks: Track[]; index: number }) {
   const { play, addToQueue, currentTrack, isPlaying } = usePlayer();
@@ -161,18 +161,23 @@ export default function HomePage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [artists, setArtists] = useState<ArtistProfile[]>([]);
   const [recommended, setRecommended] = useState<Track[]>([]);
+  const [genres, setGenres] = useState<string[]>(DEFAULT_GENRES);
   const [activeGenre, setActiveGenre] = useState('Tous');
   const [loading, setLoading] = useState(true);
+  const [loadingGenre, setLoadingGenre] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [tracksRes, artistsRes] = await Promise.all([
-          api.get<PaginatedResponse<Track>>('/music/tracks?limit=12'),
+        const [tracksRes, artistsRes, genresRes] = await Promise.all([
+          api.get<PaginatedResponse<Track>>('/music/tracks?limit=50'),
           api.get<PaginatedResponse<ArtistProfile>>('/artists?limit=10'),
+          api.get<string[]>('/music/genres').catch(() => []),
         ]);
         setTracks(tracksRes.data || []);
         setArtists(artistsRes.data || []);
+        const dbGenres = Array.isArray(genresRes) ? genresRes : [];
+        setGenres([...DEFAULT_GENRES, ...dbGenres]);
       } catch {
         // silent
       } finally {
@@ -189,6 +194,21 @@ export default function HomePage() {
       .catch(() => {});
   }, [user]);
 
+  useEffect(() => {
+    if (activeGenre === 'Tous' || tracks.some(t => t.genre === activeGenre)) return;
+    setLoadingGenre(true);
+    api.get<PaginatedResponse<Track>>(`/music/tracks?genre=${encodeURIComponent(activeGenre)}&limit=50`)
+      .then(res => {
+        setTracks(prev => {
+          const existing = new Set(prev.map(t => t.id));
+          const newTracks = (res.data || []).filter((t: Track) => !existing.has(t.id));
+          return [...prev, ...newTracks];
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingGenre(false));
+  }, [activeGenre]);
+
   const filteredTracks = activeGenre === 'Tous'
     ? tracks
     : tracks.filter((t) => t.genre === activeGenre);
@@ -202,7 +222,7 @@ export default function HomePage() {
       <div className="sticky top-12 z-40 bg-dark-900/95 backdrop-blur-sm border-b border-dark-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-2 py-3 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-            {GENRES.map((genre) => (
+            {genres.map((genre) => (
               <button
                 key={genre}
                 onClick={() => setActiveGenre(genre)}
