@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../common/modules/redis/redis.service';
+import { CloudinaryService } from '../../common/modules/cloudinary/cloudinary.service';
 import { CreateTrackDto, UpdateTrackDto } from './dto/create-track.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { TrackVisibility, SubscriptionPlan } from '@prisma/client';
@@ -27,6 +28,7 @@ export class MusicService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private cloudinary: CloudinaryService,
   ) {}
 
   async createTrack(artistUserId: string, dto: CreateTrackDto, audioFile: Express.Multer.File, coverFile?: Express.Multer.File) {
@@ -44,15 +46,20 @@ export class MusicService {
       throw new BadRequestException('Un morceau avec ce titre existe déjà');
     }
 
+    const audioUrl = await this.cloudinary.uploadBuffer(audioFile.buffer, 'audio', audioFile.originalname);
+    const coverUrl = coverFile
+      ? await this.cloudinary.uploadBuffer(coverFile.buffer, 'covers', coverFile.originalname)
+      : null;
+
     const track = await this.prisma.track.create({
       data: {
         artistId: artistProfile.id,
         title: dto.title,
         slug,
         description: dto.description,
-        audioUrl: `/uploads/audio/${audioFile.filename}`,
+        audioUrl,
         audioSize: audioFile.size,
-        coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+        coverUrl,
         genre: dto.genre,
         tags: dto.tags || [],
         visibility: dto.visibility || TrackVisibility.PUBLIC,

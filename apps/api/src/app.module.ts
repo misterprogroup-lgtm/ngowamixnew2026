@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './common/modules/redis/redis.module';
 import { REDIS_CLIENT } from './common/modules/redis/redis.constants';
 import { RedisThrottlerStorage } from './common/modules/redis/redis-throttler-storage';
+import { CloudinaryModule } from './common/modules/cloudinary/cloudinary.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -51,6 +52,7 @@ import configuration from './config/configuration';
     }),
     PrismaModule,
     RedisModule,
+    CloudinaryModule,
     AuthModule,
     UsersModule,
     ArtistsModule,

@@ -4,25 +4,28 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  UploadedFiles,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import * as path from 'path';
-import { v4 as uuid } from 'uuid';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CloudinaryService, UploadFolder } from '../../common/modules/cloudinary/cloudinary.service';
 
 const AUDIO_MIMES = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 'audio/aac', 'audio/mp4', 'audio/webm'];
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-function storageFor(subdir: string) {
-  return diskStorage({
-    destination: `./uploads/${subdir}`,
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      cb(null, `${uuid()}${ext}`);
+function memoryInterceptor(opts: { maxSize: number; allowedMimes: string[] }) {
+  return FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: opts.maxSize },
+    fileFilter: (_req, file, cb) => {
+      if (opts.allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException('Format de fichier non supporté'), false);
+      }
     },
   });
 }
@@ -30,27 +33,18 @@ function storageFor(subdir: string) {
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
+  constructor(private cloudinary: CloudinaryService) {}
+
   @Post('audio')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Uploader un fichier audio' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: storageFor('audio'),
-      limits: { fileSize: 50 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (AUDIO_MIMES.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Format audio non supporté'), false);
-        }
-      },
-    }),
-  )
-  uploadAudio(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(memoryInterceptor({ maxSize: 50 * 1024 * 1024, allowedMimes: AUDIO_MIMES }))
+  async uploadAudio(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    return { url: `/uploads/audio/${file.filename}`, filename: file.filename, size: file.size };
+    const url = await this.cloudinary.uploadBuffer(file.buffer, 'audio', file.originalname);
+    return { url, filename: file.originalname, size: file.size };
   }
 
   @Post('image')
@@ -58,45 +52,23 @@ export class UploadController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Uploader une image (pochette, avatar, bannière)' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: storageFor('covers'),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (IMAGE_MIMES.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Format image non supporté'), false);
-        }
-      },
-    }),
-  )
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(memoryInterceptor({ maxSize: 5 * 1024 * 1024, allowedMimes: IMAGE_MIMES }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    return { url: `/uploads/covers/${file.filename}`, filename: file.filename, size: file.size };
+    const url = await this.cloudinary.uploadBuffer(file.buffer, 'covers', file.originalname);
+    return { url, filename: file.originalname, size: file.size };
   }
 
   @Post('avatar')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Uploader un avatar" })
+  @ApiOperation({ summary: 'Uploader un avatar' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: storageFor('avatars'),
-      limits: { fileSize: 3 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (IMAGE_MIMES.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Format image non supporté'), false);
-        }
-      },
-    }),
-  )
-  uploadAvatar(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(memoryInterceptor({ maxSize: 3 * 1024 * 1024, allowedMimes: IMAGE_MIMES }))
+  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    return { url: `/uploads/avatars/${file.filename}`, filename: file.filename, size: file.size };
+    const url = await this.cloudinary.uploadBuffer(file.buffer, 'avatars', file.originalname);
+    return { url, filename: file.originalname, size: file.size };
   }
 
   @Post('banner')
@@ -104,21 +76,10 @@ export class UploadController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Uploader une bannière artiste' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: storageFor('banners'),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (IMAGE_MIMES.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Format image non supporté'), false);
-        }
-      },
-    }),
-  )
-  uploadBanner(@UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(memoryInterceptor({ maxSize: 5 * 1024 * 1024, allowedMimes: IMAGE_MIMES }))
+  async uploadBanner(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    return { url: `/uploads/banners/${file.filename}`, filename: file.filename, size: file.size };
+    const url = await this.cloudinary.uploadBuffer(file.buffer, 'banners', file.originalname);
+    return { url, filename: file.originalname, size: file.size };
   }
 }

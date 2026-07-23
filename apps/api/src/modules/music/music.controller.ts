@@ -16,7 +16,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import * as fs from 'fs';
@@ -29,6 +29,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { CloudinaryService } from '../../common/modules/cloudinary/cloudinary.service';
 
 class SearchTracksDto extends PaginationDto {
   @ApiProperty({ required: true })
@@ -42,7 +43,10 @@ const AUDIO_MIMES = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 'audi
 @ApiTags('Musique')
 @Controller('music')
 export class MusicController {
-  constructor(private readonly musicService: MusicService) {}
+  constructor(
+    private readonly musicService: MusicService,
+    private readonly cloudinary: CloudinaryService,
+  ) {}
 
   @Post('tracks')
   @UseGuards(JwtAuthGuard)
@@ -51,13 +55,7 @@ export class MusicController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('audioFile', {
-      storage: diskStorage({
-        destination: './uploads/audio',
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname);
-          cb(null, `${uuid()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 50 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (AUDIO_MIMES.includes(file.mimetype)) {

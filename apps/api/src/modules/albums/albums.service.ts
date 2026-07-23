@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../common/modules/redis/redis.service';
+import { CloudinaryService } from '../../common/modules/cloudinary/cloudinary.service';
 import { CreateAlbumDto, UpdateAlbumDto, AddTrackToAlbumDto } from './dto/album.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import * as fs from 'fs';
@@ -16,6 +17,7 @@ export class AlbumsService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private cloudinary: CloudinaryService,
   ) {}
 
   async create(artistUserId: string, dto: CreateAlbumDto, coverFile?: Express.Multer.File) {
@@ -29,13 +31,17 @@ export class AlbumsService {
     const price = dto.price ?? 0;
     const isFree = dto.isFree ?? price === 0;
 
+    const coverUrl = coverFile
+      ? await this.cloudinary.uploadBuffer(coverFile.buffer, 'covers', coverFile.originalname)
+      : null;
+
     return this.prisma.album.create({
       data: {
         artistId: artistProfile.id,
         title: dto.title,
         slug,
         description: dto.description,
-        coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+        coverUrl,
         releaseDate: dto.releaseDate ? new Date(dto.releaseDate) : null,
         price,
         isFree,

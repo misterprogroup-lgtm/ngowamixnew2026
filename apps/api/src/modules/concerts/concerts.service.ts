@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../common/modules/redis/redis.service';
+import { CloudinaryService } from '../../common/modules/cloudinary/cloudinary.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QrService, QrTicketData } from '../qr/qr.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -11,6 +12,7 @@ export class ConcertsService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private cloudinary: CloudinaryService,
     private notifications: NotificationsService,
     private qrService: QrService,
   ) {}
@@ -31,13 +33,17 @@ export class ConcertsService {
 
     const slug = this.generateSlug(dto.title);
 
+    const coverUrl = coverFile
+      ? await this.cloudinary.uploadBuffer(coverFile.buffer, 'covers', coverFile.originalname)
+      : null;
+
     const result = await this.prisma.concert.create({
       data: {
         artistId: artistProfile.id,
         title: dto.title,
         slug,
         description: dto.description,
-        coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+        coverUrl,
         venue: dto.venue,
         city: dto.city,
         country: dto.country || 'Cameroun',

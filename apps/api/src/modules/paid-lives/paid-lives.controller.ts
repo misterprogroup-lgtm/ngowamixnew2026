@@ -2,20 +2,12 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, UploadedFile, UseInterceptors, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import * as path from 'path';
 import { PaidLivesService } from './paid-lives.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-
-const coverStorage = diskStorage({
-  destination: './uploads/covers',
-  filename: (_req, file, cb) => {
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`);
-  },
-});
 
 @ApiTags('Paid Lives')
 @Controller('lives')
@@ -24,7 +16,7 @@ export class PaidLivesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('cover', { storage: coverStorage }))
+  @UseInterceptors(FileInterceptor('cover', { storage: memoryStorage() }))
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Créer un live payant' })

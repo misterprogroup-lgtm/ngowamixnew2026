@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CloudinaryService } from '../../common/modules/cloudinary/cloudinary.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -7,6 +8,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 export class PaidLivesService {
   constructor(
     private prisma: PrismaService,
+    private cloudinary: CloudinaryService,
     private notifications: NotificationsService,
   ) {}
 
@@ -21,13 +23,17 @@ export class PaidLivesService {
 
     const slug = this.generateSlug(dto.title);
 
+    const coverUrl = coverFile
+      ? await this.cloudinary.uploadBuffer(coverFile.buffer, 'covers', coverFile.originalname)
+      : null;
+
     return this.prisma.paidLive.create({
       data: {
         artistId: artistProfile.id,
         title: dto.title,
         slug,
         description: dto.description,
-        coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+        coverUrl,
         price: dto.price || 0,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       },
