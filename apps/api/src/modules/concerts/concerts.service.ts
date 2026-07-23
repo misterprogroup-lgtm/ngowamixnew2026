@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../common/modules/redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QrService, QrTicketData } from '../qr/qr.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -9,6 +10,7 @@ import * as crypto from 'crypto';
 export class ConcertsService {
   constructor(
     private prisma: PrismaService,
+    private redis: RedisService,
     private notifications: NotificationsService,
     private qrService: QrService,
   ) {}
@@ -29,7 +31,7 @@ export class ConcertsService {
 
     const slug = this.generateSlug(dto.title);
 
-    return this.prisma.concert.create({
+    const result = await this.prisma.concert.create({
       data: {
         artistId: artistProfile.id,
         title: dto.title,
@@ -46,9 +48,16 @@ export class ConcertsService {
       },
       include: { artist: { select: { artistName: true, slug: true } } },
     });
+
+    await this.redis.flushPattern('concerts:*');
+    return result;
   }
 
   async findAll(pagination: PaginationDto, upcoming?: boolean) {
+    const cacheKey = `concerts:list:${upcoming}:${pagination.page}:${pagination.limit}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const { skip, limit } = pagination;
     const where = upcoming ? { date: { gte: new Date() }, status: 'UPCOMING' } : {};
 
@@ -66,10 +75,16 @@ export class ConcertsService {
       this.prisma.concert.count({ where }),
     ]);
 
-    return { data: concerts, meta: { total, page: pagination.page, limit: pagination.limit } };
+    const result = { data: concerts, meta: { total, page: pagination.page, limit: pagination.limit } };
+    await this.redis.setJson(cacheKey, result, 120);
+    return result;
   }
 
   async findBySlug(slug: string) {
+    const cacheKey = `concert:slug:${slug}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const concert = await this.prisma.concert.findUnique({
       where: { slug },
       include: {
@@ -78,6 +93,7 @@ export class ConcertsService {
       },
     });
     if (!concert) throw new NotFoundException('Concert non trouvé');
+    await this.redis.setJson(cacheKey, concert, 120);
     return concert;
   }
 
@@ -239,7 +255,7 @@ export class ConcertsService {
     if (!concert) throw new NotFoundException('Concert non trouvé');
     if (concert.artist.userId !== artistUserId) throw new ForbiddenException('Non autorisé');
 
-    return this.prisma.concert.update({
+    const updated = await this.prisma.concert.update({
       where: { id: concertId },
       data: {
         ...(dto.title && { title: dto.title }),
@@ -254,6 +270,10 @@ export class ConcertsService {
         ...(dto.status && { status: dto.status }),
       },
     });
+
+    await this.redis.del(`concert:slug:${concert.slug}`);
+    await this.redis.flushPattern('concerts:*');
+    return updated;
   }
 
   async delete(artistUserId: string, concertId: string) {
@@ -261,6 +281,8 @@ export class ConcertsService {
     if (!concert) throw new NotFoundException('Concert non trouvé');
     if (concert.artist.userId !== artistUserId) throw new ForbiddenException('Non autorisé');
     await this.prisma.concert.delete({ where: { id: concertId } });
+    await this.redis.del(`concert:slug:${concert.slug}`);
+    await this.redis.flushPattern('concerts:*');
     return { message: 'Concert supprimé' };
   }
 

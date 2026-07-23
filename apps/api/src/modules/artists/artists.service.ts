@@ -1,12 +1,20 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../common/modules/redis/redis.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ArtistsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   async findAll(pagination: PaginationDto, search?: string) {
+    const cacheKey = `artists:list:${search || ''}:${pagination.page}:${pagination.limit}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const { skip, limit } = pagination;
     const where = search ? {
       artistName: { contains: search, mode: 'insensitive' as any },
@@ -39,7 +47,7 @@ export class ArtistsService {
       this.prisma.artistProfile.count(),
     ]);
 
-    return {
+    const result = {
       data: artists,
       meta: {
         total,
@@ -48,9 +56,16 @@ export class ArtistsService {
         totalPages: Math.ceil(total / (limit ?? 20)),
       },
     };
+
+    await this.redis.setJson(cacheKey, result, 300);
+    return result;
   }
 
   async findBySlug(slug: string) {
+    const cacheKey = `artist:slug:${slug}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const artist = await this.prisma.artistProfile.findUnique({
       where: { slug },
       select: {
@@ -110,11 +125,14 @@ export class ArtistsService {
       throw new NotFoundException('Artiste non trouvé');
     }
 
-    return {
+    const result = {
       ...artist,
       tracks: artist.tracks.map(t => ({ ...t, artist: { artistName: artist.artistName, slug: artist.slug } })),
       albums: artist.albums.map(a => ({ ...a, trackCount: a._count.albumTracks, artist: { artistName: artist.artistName, slug: artist.slug } })),
     };
+
+    await this.redis.setJson(cacheKey, result, 300);
+    return result;
   }
 
   async updateProfile(userId: string, dto: any) {
@@ -159,6 +177,8 @@ export class ArtistsService {
       },
     });
 
+    await this.redis.flushPattern('artist:*');
+    await this.redis.flushPattern('artists:*');
     return updatedProfile;
   }
 

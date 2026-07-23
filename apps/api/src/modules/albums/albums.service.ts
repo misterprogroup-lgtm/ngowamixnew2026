@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../common/modules/redis/redis.service';
 import { CreateAlbumDto, UpdateAlbumDto, AddTrackToAlbumDto } from './dto/album.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import * as fs from 'fs';
@@ -12,7 +13,10 @@ import * as path from 'path';
 
 @Injectable()
 export class AlbumsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   async create(artistUserId: string, dto: CreateAlbumDto, coverFile?: Express.Multer.File) {
     const artistProfile = await this.prisma.artistProfile.findUnique({ where: { userId: artistUserId } });
@@ -43,6 +47,10 @@ export class AlbumsService {
   }
 
   async findAll(pagination: PaginationDto) {
+    const cacheKey = `albums:list:${pagination.page}:${pagination.limit}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const { skip, limit } = pagination;
     const [albums, total] = await Promise.all([
       this.prisma.album.findMany({
@@ -58,10 +66,16 @@ export class AlbumsService {
       this.prisma.album.count(),
     ]);
 
-    return { data: albums, meta: { total, page: pagination.page, limit: pagination.limit } };
+    const result = { data: albums, meta: { total, page: pagination.page, limit: pagination.limit } };
+    await this.redis.setJson(cacheKey, result, 300);
+    return result;
   }
 
   async findBySlug(slug: string) {
+    const cacheKey = `album:slug:${slug}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const album = await this.prisma.album.findUnique({
       where: { slug },
       include: {
@@ -71,6 +85,7 @@ export class AlbumsService {
       },
     });
     if (!album) throw new NotFoundException('Album non trouvé');
+    await this.redis.setJson(cacheKey, album, 300);
     return album;
   }
 
@@ -79,7 +94,7 @@ export class AlbumsService {
     if (!album) throw new NotFoundException('Album non trouvé');
     if (album.artist.userId !== artistUserId) throw new ForbiddenException('Non autorisé');
 
-    return this.prisma.album.update({
+    const updated = await this.prisma.album.update({
       where: { id: albumId },
       data: {
         ...(dto.title && { title: dto.title, slug: this.generateSlug(dto.title) }),
@@ -90,6 +105,10 @@ export class AlbumsService {
         ...(dto.isFree !== undefined && { isFree: dto.isFree, price: dto.isFree ? 0 : dto.price ?? album.price }),
       },
     });
+
+    await this.redis.del(`album:slug:${album.slug}`);
+    await this.redis.flushPattern('albums:*');
+    return updated;
   }
 
   async delete(artistUserId: string, albumId: string) {
@@ -97,12 +116,13 @@ export class AlbumsService {
     if (!album) throw new NotFoundException('Album non trouvé');
     if (album.artist.userId !== artistUserId) throw new ForbiddenException('Non autorisé');
 
-    // Clean up cover file
     if (album.coverUrl) {
       this.cleanupFile(album.coverUrl);
     }
 
     await this.prisma.album.delete({ where: { id: albumId } });
+    await this.redis.del(`album:slug:${album.slug}`);
+    await this.redis.flushPattern('albums:*');
     return { message: 'Album supprimé' };
   }
 
@@ -199,6 +219,10 @@ export class AlbumsService {
   }
 
   async findTopAlbums(pagination: PaginationDto) {
+    const cacheKey = `albums:top:${pagination.page}:${pagination.limit}`;
+    const cached = await this.redis.getJson<any>(cacheKey);
+    if (cached) return cached;
+
     const { skip, limit } = pagination;
     const [albums, total] = await Promise.all([
       this.prisma.album.findMany({
@@ -212,7 +236,9 @@ export class AlbumsService {
       }),
       this.prisma.album.count(),
     ]);
-    return { data: albums, meta: { total, page: pagination.page, limit: pagination.limit, totalPages: Math.ceil(total / (limit ?? 20)) } };
+    const result = { data: albums, meta: { total, page: pagination.page, limit: pagination.limit, totalPages: Math.ceil(total / (limit ?? 20)) } };
+    await this.redis.setJson(cacheKey, result, 300);
+    return result;
   }
 
   async getAlbumStats(artistUserId: string) {
