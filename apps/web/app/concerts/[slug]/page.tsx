@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 import ShareButton from '../../components/ui/ShareButton';
+import TicketLink from '../../components/ui/TicketLink';
 import DownloadButton from '../../components/ui/DownloadButton';
 import PaymentModal from '../../components/PaymentModal';
 import { AlertTriangle } from 'lucide-react';
@@ -145,6 +146,11 @@ export default function ConcertDetailPage() {
                 </div>
               </div>
               {concert.description && <p className="text-dark-300 text-sm leading-relaxed">{concert.description}</p>}
+            </div>
+
+            <div className="bg-dark-800/50 rounded-xl p-6">
+              <h2 className="text-sm font-semibold text-white mb-3 uppercase tracking-wide">Lien billetterie</h2>
+              <TicketLink artistSlug={concert.artist.slug} />
             </div>
 
             <div className="bg-dark-800/50 rounded-xl p-6">

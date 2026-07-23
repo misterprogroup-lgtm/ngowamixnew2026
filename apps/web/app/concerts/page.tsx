@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api, type PaginatedResponse } from '../lib/api';
+import { Calendar, MapPin, Link2 } from 'lucide-react';
 
 interface Concert {
   id: string;
@@ -116,6 +117,10 @@ export default function ConcertsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     </svg>
                     <span>{concert.venue}, {concert.city}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2 text-[11px] text-primary-400">
+                    <Link2 className="w-3 h-3" />
+                    <span>{concert.artist.slug}ticket.ngowamix.com</span>
                   </div>
                 </div>
               </Link>

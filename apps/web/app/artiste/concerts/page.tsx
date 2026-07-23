@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 import { concertAttendees } from '../../lib/routes';
+import TicketLink from '../../components/ui/TicketLink';
 
 interface Concert {
   id: string;
@@ -145,6 +146,11 @@ export default function ArtistConcertsPage() {
                   <h3 className="font-semibold text-white truncate">{concert.title}</h3>
                   <p className="text-sm text-dark-400">{concert.venue}, {concert.city}</p>
                   <p className="text-xs text-dark-400 mt-1">{new Date(concert.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} · {concert.soldSeats}/{concert.totalSeats} places · {concert.ticketPrice.toLocaleString('fr-FR')} FCFA</p>
+                  {user?.artistProfile && (
+                    <div className="mt-2">
+                      <TicketLink artistSlug={user.artistProfile.slug} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Link href={concertAttendees(concert.id)} className="text-xs bg-primary-50 text-primary-600 px-3 py-1.5 rounded-lg hover:bg-primary-100 transition-colors">Participants</Link>
