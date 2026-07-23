@@ -79,12 +79,20 @@ function TrackCard({ track, allTracks, index }: { track: Track; allTracks: Track
       </div>
 
       <div className="px-1">
-        <p className={`font-medium truncate text-sm ${isActive ? 'text-primary-500' : 'text-white'}`}>
+        <Link
+          href={`/morceaux/${track.slug}`}
+          onClick={(e) => e.stopPropagation()}
+          className={`font-medium truncate text-sm block hover:underline ${isActive ? 'text-primary-500' : 'text-white'}`}
+        >
           {track.title}
-        </p>
-        <p className="text-xs text-dark-400 truncate mt-0.5">
+        </Link>
+        <Link
+          href={`/artistes/${track.artist.slug}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-dark-400 truncate mt-0.5 block hover:text-white transition-colors"
+        >
           {track.artist.artistName}
-        </p>
+        </Link>
         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-dark-500">
           <span>{track.playCount.toLocaleString('fr-FR')} lectures</span>
         </div>
