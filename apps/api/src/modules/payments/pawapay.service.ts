@@ -105,7 +105,7 @@ export class PawapayService {
           provider,
         },
       },
-      customerMessage: params.statementDescription.slice(0, 22),
+      customerMessage: params.statementDescription.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 22),
     };
 
     this.logger.log(`PawaPay deposit init: ${depositId} ${params.amount} ${currency} via ${provider} phone=${phoneNumber}`);
