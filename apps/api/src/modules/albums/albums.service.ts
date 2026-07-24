@@ -95,17 +95,26 @@ export class AlbumsService {
     return album;
   }
 
-  async update(artistUserId: string, albumId: string, dto: UpdateAlbumDto) {
+  async update(artistUserId: string, albumId: string, dto: UpdateAlbumDto, coverFile?: Express.Multer.File) {
     const album = await this.prisma.album.findUnique({ where: { id: albumId }, include: { artist: true } });
     if (!album) throw new NotFoundException('Album non trouvé');
     if (album.artist.userId !== artistUserId) throw new ForbiddenException('Non autorisé');
+
+    let coverUrl = dto.coverUrl;
+    if (coverFile) {
+      const uploadResult = await this.cloudinary.uploadBuffer(coverFile.buffer, {
+        folder: 'ngowamix/covers',
+        resource_type: 'image',
+      });
+      coverUrl = uploadResult.url;
+    }
 
     const updated = await this.prisma.album.update({
       where: { id: albumId },
       data: {
         ...(dto.title && { title: dto.title, slug: this.generateSlug(dto.title) }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.coverUrl && { coverUrl: dto.coverUrl }),
+        ...(coverUrl && { coverUrl }),
         ...(dto.releaseDate && { releaseDate: new Date(dto.releaseDate) }),
         ...(dto.price !== undefined && { price: dto.price, isFree: dto.price === 0 }),
         ...(dto.isFree !== undefined && { isFree: dto.isFree, price: dto.isFree ? 0 : dto.price ?? album.price }),

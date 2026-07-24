@@ -188,9 +188,12 @@ export class MusicController {
   }
 
   @Get('stream/:trackId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Stream audio d\'un morceau' })
   @ApiQuery({ name: 'download', required: false, type: Boolean })
   async streamAudio(
+    @CurrentUser('id') userId: string,
     @Param('trackId') trackId: string,
     @Query('download') download: string,
     @Res() res: Response,

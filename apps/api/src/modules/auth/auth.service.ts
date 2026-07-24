@@ -88,7 +88,6 @@ export class AuthService {
     return {
       user,
       ...tokens,
-      verificationCode: code,
     };
   }
 

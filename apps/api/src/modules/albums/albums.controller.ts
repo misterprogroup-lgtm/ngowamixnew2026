@@ -81,8 +81,9 @@ export class AlbumsController {
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateAlbumDto,
+    @UploadedFile() cover?: Express.Multer.File,
   ) {
-    return this.albumsService.update(userId, id, dto);
+    return this.albumsService.update(userId, id, dto, cover);
   }
 
   @Delete(':id')

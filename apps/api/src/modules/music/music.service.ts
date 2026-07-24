@@ -208,7 +208,7 @@ export class MusicService {
     const where: any = { visibility: TrackVisibility.PUBLIC };
     if (genres.length > 0) {
       where.genre = { in: genres };
-      where.trackId = { notIn: recentHistory.map(h => h.trackId) };
+      where.id = { notIn: recentHistory.map(h => h.trackId) };
     }
 
     const [tracks, total] = await Promise.all([

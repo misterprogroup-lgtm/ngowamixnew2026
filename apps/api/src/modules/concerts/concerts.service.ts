@@ -69,11 +69,10 @@ export class ConcertsService {
     let where: any = upcoming ? { date: { gte: new Date() }, status: 'UPCOMING' } : {};
 
     if (artistSlug) {
-      const normalizedSlug = artistSlug.toLowerCase().replace(/-/g, '');
-      const allArtists = await this.prisma.artistProfile.findMany({
-        select: { id: true, slug: true },
+      const matchedArtist = await this.prisma.artistProfile.findFirst({
+        where: { slug: { contains: artistSlug, mode: 'insensitive' } },
+        select: { id: true },
       });
-      const matchedArtist = allArtists.find(a => a.slug.toLowerCase().replace(/-/g, '') === normalizedSlug);
       if (matchedArtist) {
         where = { ...where, artistId: matchedArtist.id };
       } else {

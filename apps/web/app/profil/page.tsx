@@ -90,7 +90,7 @@ export default function ProfilPage() {
 
     try {
       if (avatarFile) {
-        await api.upload('/users/avatar', avatarFile, 'avatar');
+        await api.upload('/upload/avatar', avatarFile, 'avatar');
       }
       await api.patch('/users/me', { pseudo, country, city });
       setSuccess('Profil mis à jour !');
@@ -176,7 +176,7 @@ export default function ProfilPage() {
           {success && <div className="bg-emerald-500/20 text-emerald-300 px-4 py-3 rounded-lg text-sm">{success}</div>}
 
           {/* Subscription Badge */}
-          {user.subscription && user.subscription.plan !== 'FREE' && (
+          {user.subscription && user.subscription.plan !== 'GRATUIT' && (
             <div className="bg-gradient-to-r from-primary-500/10 to-amber-500/10 border border-primary-500/50 rounded-xl p-4 flex items-center gap-3">
               <Star className="w-6 h-6 text-primary-500" />
               <div className="flex-1">
