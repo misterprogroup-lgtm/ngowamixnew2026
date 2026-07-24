@@ -90,12 +90,16 @@ export default function PaymentModal({ amount, title, onConfirm, onClose, quanti
           <label className="text-sm text-dark-300 font-medium mb-1.5 block">Numéro de téléphone</label>
           <div className="relative">
             <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+            <span className="absolute left-10 top-1/2 -translate-y-1/2 text-dark-400 text-sm font-medium pointer-events-none">+225</span>
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ''))}
               placeholder="07 07 07 07 07"
-              className="w-full bg-dark-700/50 border border-dark-600 rounded-xl pl-10 pr-4 py-3 text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 transition-colors"
+              className="w-full bg-dark-700/50 border border-dark-600 rounded-xl pl-20 pr-4 py-3 text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 transition-colors"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={12}
             />
           </div>
           <p className="text-[11px] text-dark-500 mt-1">Un code USSD sera envoyé pour confirmer le paiement</p>
