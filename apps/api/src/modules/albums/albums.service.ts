@@ -102,11 +102,7 @@ export class AlbumsService {
 
     let coverUrl = dto.coverUrl;
     if (coverFile) {
-      const uploadResult = await this.cloudinary.uploadBuffer(coverFile.buffer, {
-        folder: 'ngowamix/covers',
-        resource_type: 'image',
-      });
-      coverUrl = uploadResult.url;
+      coverUrl = await this.cloudinary.uploadBuffer(coverFile.buffer, 'covers', coverFile.originalname);
     }
 
     const updated = await this.prisma.album.update({
