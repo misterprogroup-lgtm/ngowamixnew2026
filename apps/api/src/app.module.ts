@@ -44,7 +44,7 @@ import configuration from './config/configuration';
         throttlers: [
           {
             ttl: config.get('THROTTLE_TTL', 60) * 1000,
-            limit: config.get('THROTTLE_LIMIT', 60),
+            limit: config.get('THROTTLE_LIMIT', 200),
           },
         ],
         storage: new RedisThrottlerStorage(redis),
