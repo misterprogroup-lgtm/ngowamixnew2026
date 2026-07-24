@@ -105,39 +105,43 @@ async function apiFetch<T = unknown>(endpoint: string, options: FetchOptions = {
   return (data.data !== undefined ? data.data : data) as T;
 }
 
-function apiUpload<T = unknown>(endpoint: string, file: File, fieldName = 'file'): Promise<T> {
-  const token = getAccessToken();
+async function apiUpload<T = unknown>(endpoint: string, file: File, fieldName = 'file'): Promise<T> {
+  let token = getAccessToken();
   const formData = new FormData();
   formData.append(fieldName, file);
 
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  return fetch(`${API_BASE}${endpoint}`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  }).then(async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Erreur upload');
-    return (data.data !== undefined ? data.data : data) as T;
-  });
+  let res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers, body: formData });
+
+  if (res.status === 401 && token) {
+    token = await tryRefreshToken();
+    headers['Authorization'] = `Bearer ${token}`;
+    res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers, body: formData });
+  }
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Erreur upload');
+  return (data.data !== undefined ? data.data : data) as T;
 }
 
-function apiFormData<T = unknown>(endpoint: string, method: string, formData: FormData): Promise<T> {
-  const token = getAccessToken();
+async function apiFormData<T = unknown>(endpoint: string, method: string, formData: FormData): Promise<T> {
+  let token = getAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  return fetch(`${API_BASE}${endpoint}`, {
-    method,
-    headers,
-    body: formData,
-  }).then(async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Erreur API');
-    return (data.data !== undefined ? data.data : data) as T;
-  });
+  let res = await fetch(`${API_BASE}${endpoint}`, { method, headers, body: formData });
+
+  if (res.status === 401 && token) {
+    token = await tryRefreshToken();
+    headers['Authorization'] = `Bearer ${token}`;
+    res = await fetch(`${API_BASE}${endpoint}`, { method, headers, body: formData });
+  }
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Erreur API');
+  return (data.data !== undefined ? data.data : data) as T;
 }
 
 export const api = {

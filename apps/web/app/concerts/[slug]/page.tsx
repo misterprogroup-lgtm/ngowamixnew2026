@@ -29,7 +29,7 @@ interface Concert {
     id: string;
     artistName: string;
     slug: string;
-    user: { name: string; avatar: string | null };
+    user: { avatarUrl: string | null };
   };
 }
 
@@ -169,8 +169,8 @@ export default function ConcertDetailPage() {
             <div className="bg-dark-800/50 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Link href={`/artistes/${concert.artist.slug}`} className="w-12 h-12 rounded-full overflow-hidden bg-dark-700/50">
-                  {concert.artist.user.avatar ? (
-                    <img src={concert.artist.user.avatar} alt={concert.artist.artistName} className="w-full h-full object-cover" />
+                  {concert.artist.user.avatarUrl ? (
+                    <img src={concert.artist.user.avatarUrl} alt={concert.artist.artistName} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-lg font-bold text-primary-500">{concert.artist.artistName.charAt(0)}</div>
                   )}
