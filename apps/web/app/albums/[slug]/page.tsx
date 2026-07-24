@@ -97,7 +97,7 @@ export default function AlbumDetailPage() {
     const allTracks = album.albumTracks.map((at) => ({
       id: at.track.id,
       title: at.track.title,
-      audioUrl: `/api/music/stream/${at.track.id}`,
+      audioUrl: api.streamUrl(at.track.id),
       coverUrl: at.track.coverUrl || album.coverUrl || undefined,
       artist: { artistName: album.artist.artistName, slug: album.artist.slug },
     }));
@@ -115,7 +115,7 @@ export default function AlbumDetailPage() {
     try {
       const result = await api.post<{ allowed: boolean; quotaExceeded?: boolean; message?: string }>(`/music/download/${trackId}`);
       if (result.allowed) {
-        window.location.href = `/api/music/stream/${trackId}?download=true`;
+        window.location.href = api.streamUrl(trackId, true);
         setTimeout(() => setDownloadStates(prev => ({ ...prev, [trackId]: false })), 3000);
       } else {
         alert(result.message || 'Limite de téléchargements atteinte');
@@ -128,13 +128,19 @@ export default function AlbumDetailPage() {
   };
 
   const downloadAll = async () => {
-    for (const track of tracks) {
+    const tracksToDownload = album.albumTracks?.map((at) => at.track) ?? [];
+    for (const track of tracksToDownload) {
       if (downloadStates[track.id]) continue;
       setDownloadStates(prev => ({ ...prev, [track.id]: true }));
       try {
         const result = await api.post<{ allowed: boolean }>(`/music/download/${track.id}`);
         if (result.allowed) {
-          window.location.href = `/api/music/stream/${track.id}?download=true`;
+          const a = document.createElement('a');
+          a.href = api.streamUrl(track.id, true);
+          a.download = '';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
         }
       } catch {}
       setDownloadStates(prev => ({ ...prev, [track.id]: false }));

@@ -90,7 +90,7 @@ export default function ArtistStatsPage() {
                     key={track.id}
                     className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg cursor-pointer hover:bg-dark-600/50 transition-colors"
                     onClick={() => play({
-                      id: track.id, title: track.title, audioUrl: `/api/music/stream/${track.id}`,
+                      id: track.id, title: track.title, audioUrl: api.streamUrl(track.id),
                       artist: { artistName: 'Vous', slug: '' }
                     })}
                   >

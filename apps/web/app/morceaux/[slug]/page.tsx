@@ -70,7 +70,7 @@ export default function TrackDetailPage({ params }: { params: Promise<{ slug: st
     play({
       id: track.id,
       title: track.title,
-      audioUrl: `/api/music/stream/${track.id}`,
+      audioUrl: api.streamUrl(track.id),
       coverUrl: track.coverUrl || undefined,
       artist: { artistName: track.artist.artistName, slug: track.artist.slug },
     });
@@ -82,7 +82,7 @@ export default function TrackDetailPage({ params }: { params: Promise<{ slug: st
     try {
       const result = await api.post<{ allowed: boolean; message?: string }>(`/music/download/${track.id}`);
       if (result.allowed) {
-        window.location.href = `/api/music/stream/${track.id}?download=true`;
+        window.location.href = api.streamUrl(track.id, true);
       } else {
         alert(result.message || 'Limite de téléchargements atteinte');
       }

@@ -21,7 +21,7 @@ export default function DownloadButton({ trackId, trackTitle, className = '' }: 
     try {
       const result = await api.post<{ allowed: boolean; quotaExceeded?: boolean; message?: string }>(`/music/download/${trackId}`);
       if (result.allowed) {
-        window.location.href = `/api/music/stream/${trackId}?download=true`;
+        window.location.href = api.streamUrl(trackId, true);
         setDone(true);
         setTimeout(() => setDone(false), 3000);
       } else {

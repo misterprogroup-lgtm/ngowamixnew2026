@@ -152,6 +152,15 @@ export const api = {
   upload: apiUpload,
   postFormData: <T = unknown>(endpoint: string, formData: FormData) => apiFormData<T>(endpoint, 'POST', formData),
   patchFormData: <T = unknown>(endpoint: string, formData: FormData) => apiFormData<T>(endpoint, 'PATCH', formData),
+  streamUrl(trackId: string, download = false): string {
+    const token = getAccessToken();
+    let url = `/api/music/stream/${trackId}`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (download) params.set('download', 'true');
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
+  },
   setTokens,
   clearTokens,
   getAccessToken,

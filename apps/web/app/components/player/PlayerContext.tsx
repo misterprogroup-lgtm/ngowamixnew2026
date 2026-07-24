@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react';
+import { api } from '../../lib/api';
 
 interface Track {
   id: string;
@@ -79,7 +80,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrentTrack(track);
     const audio = audioRef.current;
     if (!audio) return;
-    audio.src = `/api/music/stream/${track.id}`;
+    audio.src = api.streamUrl(track.id);
     audio.play().catch(() => {});
     setIsPlaying(true);
   }, []);

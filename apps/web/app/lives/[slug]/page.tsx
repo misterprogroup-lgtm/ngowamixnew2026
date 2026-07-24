@@ -199,6 +199,7 @@ export default function LiveDetailPage() {
 
                     {live.isLive ? (
                       <button
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition-colors animate-pulse"
                       >
                         Regarder le live

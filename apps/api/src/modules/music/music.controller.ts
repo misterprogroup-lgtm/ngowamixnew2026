@@ -21,7 +21,10 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiQuery } from '@ne
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { v4 as uuid } from 'uuid';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { MusicService } from './music.service';
 import { CreateTrackDto, UpdateTrackDto } from './dto/create-track.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -46,6 +49,8 @@ export class MusicController {
   constructor(
     private readonly musicService: MusicService,
     private readonly cloudinary: CloudinaryService,
+    private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post('tracks')
@@ -188,16 +193,24 @@ export class MusicController {
   }
 
   @Get('stream/:trackId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Stream audio d\'un morceau' })
+  @ApiOperation({ summary: 'Stream audio d\'un morceau (token via query param)' })
   @ApiQuery({ name: 'download', required: false, type: Boolean })
+  @ApiQuery({ name: 'token', required: false, type: String })
   async streamAudio(
-    @CurrentUser('id') userId: string,
     @Param('trackId') trackId: string,
     @Query('download') download: string,
+    @Query('token') token: string,
     @Res() res: Response,
   ) {
+    let userId: string | null = null;
+    try {
+      if (token) {
+        const payload = this.jwtService.verify(token, { secret: this.config.get<string>('JWT_SECRET') });
+        userId = payload.sub;
+      }
+    } catch {
+      // Invalid/expired token — treat as anonymous
+    }
     const track = await (this.musicService as any).prisma.track.findUnique({ where: { id: trackId } });
     if (!track) {
       return res.status(404).json({ message: 'Morceau non trouvé' });
