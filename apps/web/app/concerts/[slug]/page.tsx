@@ -51,6 +51,8 @@ export default function ConcertDetailPage() {
   const [myTicket, setMyTicket] = useState<Ticket | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     const fetchConcert = async () => {
@@ -67,7 +69,7 @@ export default function ConcertDetailPage() {
   useEffect(() => {
     if (user && concert) {
       api.get<Ticket[]>(`/concerts/${concert.id}/my-tickets`).then((tickets) => {
-        if (Array.isArray(tickets) && tickets.length > 0) setMyTicket(tickets[0]);
+        if (Array.isArray(tickets) && tickets.length > 0) setMyTicket(tickets[tickets.length - 1]);
       }).catch(() => {});
     }
   }, [user, concert]);
@@ -82,34 +84,41 @@ export default function ConcertDetailPage() {
         method,
         phone,
       });
+      setShowPaymentModal(false);
       if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        setPaymentPending(true);
         pollPaymentStatus(res.payment?.id);
       } else {
         setMyTicket(res.ticket);
         setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
+        setPaymentSuccess(true);
+        setTimeout(() => setPaymentSuccess(false), 4000);
       }
-      setShowPaymentModal(false);
     } catch (err: any) {
+      setShowPaymentModal(false);
       alert(err.message || 'Erreur lors de l\'achat');
     } finally { setPurchasing(false); }
   };
 
   const pollPaymentStatus = async (paymentId: string) => {
-    if (!paymentId) return;
+    if (!paymentId) { setPaymentPending(false); return; }
     let attempts = 0;
-    const maxAttempts = 20;
     const interval = setInterval(async () => {
       attempts++;
       try {
         const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
         if (payment.status === 'COMPLETED') {
           clearInterval(interval);
+          setPaymentPending(false);
+          setPaymentSuccess(true);
+          setTimeout(() => setPaymentSuccess(false), 4000);
           const tickets = await api.get<Ticket[]>(`/concerts/${concert!.id}/my-tickets`);
           if (Array.isArray(tickets) && tickets.length > 0) setMyTicket(tickets[tickets.length - 1]);
           setConcert(c => c ? { ...c, soldSeats: c.soldSeats + quantity } : c);
-        } else if (payment.status === 'FAILED' || attempts >= maxAttempts) {
+        } else if (payment.status === 'FAILED' || attempts >= 20) {
           clearInterval(interval);
-          if (payment.status === 'FAILED') alert('Le paiement a échoué. Veuillez réessayer.');
+          setPaymentPending(false);
+          alert(payment.status === 'FAILED' ? 'Le paiement a échoué.' : 'Délai dépassé. Vérifiez votre téléphone.');
         }
       } catch { /* retry */ }
     }, 3000);
@@ -199,7 +208,21 @@ export default function ConcertDetailPage() {
                 </p>
               </div>
 
-              {myTicket ? (
+              {paymentPending ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-white font-semibold mb-1">Confirmation en cours...</p>
+                  <p className="text-sm text-dark-400">Validez le paiement sur votre téléphone</p>
+                  <p className="text-xs text-dark-500 mt-2">Vous recevrez un code USSD. Entrez votre PIN pour confirmer.</p>
+                </div>
+              ) : paymentSuccess ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <p className="text-white font-semibold">Paiement réussi !</p>
+                </div>
+              ) : myTicket ? (
                 <div className="text-center">
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-3">
                     <p className="text-green-700 text-sm font-medium mb-1">Vous avez un billet !</p>

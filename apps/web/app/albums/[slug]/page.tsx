@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../components/auth/AuthContext';
 import { usePlayer } from '../../components/player/PlayerContext';
 import { api, type Album, type Track } from '../../lib/api';
-import { Smartphone, CreditCard, Download, Check, Loader2, ShoppingCart } from 'lucide-react';
+import { Download, Check, Loader2 } from 'lucide-react';
 import { toPlayerTrack } from '../../lib/player-utils';
 import ShareButton from '../../components/ui/ShareButton';
 import PaymentModal from '../../components/PaymentModal';
@@ -25,6 +25,7 @@ export default function AlbumDetailPage() {
   const [downloadStates, setDownloadStates] = useState<Record<string, boolean>>({});
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
 
   useEffect(() => {
     const fetchAlbum = async () => {
@@ -52,15 +53,17 @@ export default function AlbumDetailPage() {
     setError('');
     try {
       const res = await api.post<{ payment?: any; status?: string; message?: string }>(`/payments/album/${album.id}`, { method, phone });
+      setShowPaymentModal(false);
       if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        setPaymentPending(true);
         pollPaymentStatus(res.payment?.id);
       } else {
         setPurchased(true);
         setPurchaseSuccess(true);
         setTimeout(() => setPurchaseSuccess(false), 4000);
       }
-      setShowPaymentModal(false);
     } catch (err: any) {
+      setShowPaymentModal(false);
       setError(err.message || 'Erreur lors de l\'achat');
     } finally {
       setPurchasing(false);
@@ -68,7 +71,7 @@ export default function AlbumDetailPage() {
   };
 
   const pollPaymentStatus = async (paymentId: string) => {
-    if (!paymentId) return;
+    if (!paymentId) { setPaymentPending(false); return; }
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
@@ -76,12 +79,14 @@ export default function AlbumDetailPage() {
         const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
         if (payment.status === 'COMPLETED') {
           clearInterval(interval);
+          setPaymentPending(false);
           setPurchased(true);
           setPurchaseSuccess(true);
           setTimeout(() => setPurchaseSuccess(false), 4000);
         } else if (payment.status === 'FAILED' || attempts >= 20) {
           clearInterval(interval);
-          if (payment.status === 'FAILED') setError('Le paiement a échoué.');
+          setPaymentPending(false);
+          setError(payment.status === 'FAILED' ? 'Le paiement a échoué.' : 'Délai dépassé.');
         }
       } catch { /* retry */ }
     }, 3000);
@@ -197,14 +202,29 @@ export default function AlbumDetailPage() {
             </div>
 
             <div className="mt-6">
-              {album.isFree ? (
+              {paymentPending ? (
+                <div className="flex items-center gap-3 py-3">
+                  <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <div>
+                    <p className="text-white font-semibold text-sm">Confirmation en cours...</p>
+                    <p className="text-xs text-dark-400">Validez sur votre téléphone</p>
+                  </div>
+                </div>
+              ) : purchaseSuccess ? (
+                <div className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full">
+                  <Check className="w-4 h-4" /> Acheté avec succès !
+                </div>
+              ) : album.isFree ? (
                 <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium">Gratuit</span>
               ) : purchased ? (
                 <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium">Acheté</span>
               ) : album.price != null ? (
                   <div className="flex items-center gap-3">
                     <span className="text-2xl font-bold text-white">{album.price.toLocaleString('fr-FR')} FCFA</span>
-                    <button onClick={() => setShowPaymentModal(true)} className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-full text-sm font-medium disabled:opacity-50 transition-colors">
+                    <button onClick={() => {
+                      if (!user) { router.push('/connexion'); return; }
+                      setShowPaymentModal(true);
+                    }} className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-full text-sm font-medium disabled:opacity-50 transition-colors">
                       Acheter
                     </button>
                   </div>
@@ -268,14 +288,12 @@ export default function AlbumDetailPage() {
         </div>
       </div>
 
-      {/* Purchase success toast */}
       {purchaseSuccess && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-bounce">
-          <Check className="w-5 h-5" /> Achat réussi ! Vous pouvez maintenant écouter et télécharger les morceaux.
+          <Check className="w-5 h-5" /> Achat réussi !
         </div>
       )}
 
-      {/* Payment Modal */}
       {showPaymentModal && (
         <PaymentModal
           amount={album.price ?? 0}

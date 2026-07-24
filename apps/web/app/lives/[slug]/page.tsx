@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useAuth } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 import LivePlayer from '../../components/live/LivePlayer';
-import { Smartphone, CreditCard } from 'lucide-react';
 import PaymentModal from '../../components/PaymentModal';
 
 interface PaidLive {
@@ -35,6 +34,7 @@ export default function LiveDetailPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
 
   useEffect(() => {
     const fetchLive = async () => {
@@ -57,13 +57,15 @@ export default function LiveDetailPage() {
     setError('');
     try {
       const res = await api.post<{ payment?: any; status?: string; message?: string }>(`/payments/live/${live.id}`, { method, phone });
+      setShowPaymentModal(false);
       if (res.status === 'PENDING' || res.status === 'ACCEPTED') {
+        setPaymentPending(true);
         pollPaymentStatus(res.payment?.id);
       } else {
         setSuccess(true);
       }
-      setShowPaymentModal(false);
     } catch (err: any) {
+      setShowPaymentModal(false);
       setError(err.message || 'Erreur lors de l\'achat');
     } finally {
       setPurchasing(false);
@@ -77,7 +79,7 @@ export default function LiveDetailPage() {
   };
 
   const pollPaymentStatus = async (paymentId: string) => {
-    if (!paymentId) return;
+    if (!paymentId) { setPaymentPending(false); return; }
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
@@ -85,10 +87,12 @@ export default function LiveDetailPage() {
         const payment = await api.get<{ id: string; status: string }>(`/payments/${paymentId}/status`);
         if (payment.status === 'COMPLETED') {
           clearInterval(interval);
+          setPaymentPending(false);
           setSuccess(true);
         } else if (payment.status === 'FAILED' || attempts >= 20) {
           clearInterval(interval);
-          if (payment.status === 'FAILED') setError('Le paiement a échoué.');
+          setPaymentPending(false);
+          setError(payment.status === 'FAILED' ? 'Le paiement a échoué.' : 'Délai dépassé.');
         }
       } catch { /* retry */ }
     }, 3000);
@@ -166,9 +170,14 @@ export default function LiveDetailPage() {
                 </div>
               </div>
 
-              {/* Access Purchase */}
               <div className="bg-dark-700/50 rounded-xl p-6 md:w-72 flex-shrink-0">
-                {success ? (
+                {paymentPending ? (
+                  <div className="text-center py-4">
+                    <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-white font-semibold mb-1">Confirmation en cours...</p>
+                    <p className="text-sm text-dark-400">Validez le paiement sur votre téléphone</p>
+                  </div>
+                ) : success ? (
                   <div className="text-center">
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                       <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,7 +220,6 @@ export default function LiveDetailPage() {
         </div>
       </div>
 
-      {/* Payment Modal */}
       {showPaymentModal && (
         <PaymentModal
           amount={live.price}
