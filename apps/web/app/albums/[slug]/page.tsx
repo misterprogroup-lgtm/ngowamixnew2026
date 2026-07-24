@@ -128,7 +128,7 @@ export default function AlbumDetailPage() {
   };
 
   const downloadAll = async () => {
-    const tracksToDownload = album.albumTracks?.map((at) => at.track) ?? [];
+    const tracksToDownload = album!.albumTracks?.map((at) => at.track) ?? [];
     for (const track of tracksToDownload) {
       if (downloadStates[track.id]) continue;
       setDownloadStates(prev => ({ ...prev, [track.id]: true }));
