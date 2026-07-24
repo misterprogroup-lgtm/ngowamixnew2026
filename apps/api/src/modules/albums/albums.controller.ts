@@ -2,13 +2,13 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, UploadedFile, UseInterceptors, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AlbumsService } from './albums.service';
 import { CreateAlbumDto, UpdateAlbumDto, AddTrackToAlbumDto } from './dto/album.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { coverUploadConfig } from '../../common/helpers/multer.config';
 
 @ApiTags('Albums')
 @Controller('albums')
@@ -17,7 +17,7 @@ export class AlbumsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('cover', { storage: memoryStorage() }))
+  @UseInterceptors(FileInterceptor('cover', coverUploadConfig))
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Créer un album' })
@@ -73,7 +73,7 @@ export class AlbumsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('cover', { storage: memoryStorage() }))
+  @UseInterceptors(FileInterceptor('cover', coverUploadConfig))
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Modifier un album' })

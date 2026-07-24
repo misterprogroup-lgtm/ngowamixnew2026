@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateUserDto, UpdateEmailDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -99,7 +100,7 @@ export class UsersService {
 
     if (dto.newPassword.length < 8) throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères');
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash: hashedPassword } });
     return { message: 'Mot de passe modifié avec succès' };
   }
@@ -132,7 +133,7 @@ export class UsersService {
         pseudo: `utilisateur_supprime_${userId.slice(0, 8)}`,
         email: `supprime_${userId.slice(0, 8)}@ngowamix.com`,
         phone: null,
-        passwordHash: await bcrypt.hash(userId + Date.now(), 10),
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
         avatarUrl: null,
         country: null,
         city: null,

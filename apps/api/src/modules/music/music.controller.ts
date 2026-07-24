@@ -242,7 +242,11 @@ export class MusicController {
     }
 
     // Local file
-    const filePath = path.join(process.cwd(), track.audioUrl);
+    const uploadsDir = path.resolve(process.cwd(), 'uploads');
+    const filePath = path.resolve(process.cwd(), track.audioUrl);
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: 'Fichier audio non trouvé' });
     }

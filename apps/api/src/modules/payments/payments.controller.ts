@@ -1,13 +1,18 @@
-import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus, Req, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaymentsService } from './payments.service';
+import type { Request } from 'express';
 
 @ApiTags('Paiements')
 @Controller('payments')
 export class PaymentsController {
-  constructor(private paymentsService: PaymentsService) {}
+  constructor(
+    private paymentsService: PaymentsService,
+    private config: ConfigService,
+  ) {}
 
   @Post('concert/:concertId')
   @UseGuards(JwtAuthGuard)
@@ -60,7 +65,15 @@ export class PaymentsController {
   @Post('webhook/pawapay')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Webhook PawaPay (callback de confirmation)' })
-  pawapayWebhook(@Body() payload: { depositId: string; status: string }) {
+  async pawapayWebhook(@Req() req: Request, @Body() payload: { depositId: string; status: string }) {
+    const secret = this.config.get<string>('PAWAPAY_WEBHOOK_SECRET');
+    if (secret) {
+      const signature = req.headers['x-pawapay-signature'] as string;
+      if (!signature) throw new UnauthorizedException('Missing webhook signature');
+      const crypto = await import('crypto');
+      const expected = crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
+      if (signature !== expected) throw new UnauthorizedException('Invalid webhook signature');
+    }
     return this.paymentsService.handlePawapayCallback(payload);
   }
 

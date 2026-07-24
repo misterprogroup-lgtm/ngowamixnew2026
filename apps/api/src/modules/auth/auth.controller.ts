@@ -29,6 +29,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraîchir le token d\'accès' })
   refresh(@Body() dto: RefreshTokenDto) {

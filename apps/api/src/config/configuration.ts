@@ -8,7 +8,7 @@ export default () => ({
     url: process.env.REDIS_URL,
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'default-secret',
+    secret: process.env.JWT_SECRET,
     expiration: process.env.JWT_EXPIRATION || '15m',
     refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
   },
