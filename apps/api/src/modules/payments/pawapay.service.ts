@@ -65,19 +65,18 @@ export class PawapayService {
     let p = phone.replace(/[\s\-\+]/g, '');
     if (p.startsWith('00')) p = p.slice(2);
 
-    const prefix = '225';
     if (this.country === 'CIV') {
-      if (p.startsWith(prefix)) return p;
-      if (p.startsWith('0')) p = prefix + p.slice(1);
-      else p = prefix + p;
+      if (p.startsWith('225')) {
+        if (p.length === 13) return p;
+        return '2250' + p.slice(3);
+      }
+      return '225' + p;
     } else if (this.country === 'CMR') {
-      const cmrPrefix = '237';
-      if (p.startsWith(cmrPrefix)) return p;
-      p = cmrPrefix + p.replace(/^0/, '');
+      if (p.startsWith('237')) return p;
+      return '237' + p.replace(/^0/, '');
     } else if (this.country === 'SEN') {
-      const senPrefix = '221';
-      if (p.startsWith(senPrefix)) return p;
-      p = senPrefix + p.replace(/^0/, '');
+      if (p.startsWith('221')) return p;
+      return '221' + p.replace(/^0/, '');
     }
 
     this.logger.log(`Phone normalized: "${phone}" -> "${p}" (${p.length} digits)`);
